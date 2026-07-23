@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 import { NotificationsGateway } from './notifications.gateway';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class NotificationsService {
@@ -9,7 +10,7 @@ export class NotificationsService {
     private gateway: NotificationsGateway,
   ) {}
 
-  async create(userId: string, type: string, payload: Record<string, unknown>) {
+  async create(userId: string, type: string, payload: Prisma.InputJsonValue) {
     const notification = await this.prisma.notification.create({ data: { userId, type, payload } });
     this.gateway.push(userId, notification);
     return notification;
@@ -24,7 +25,6 @@ export class NotificationsService {
   }
 
   async markRead(userId: string, id: string) {
-    // scoped to userId so one user can't mark another's notification read
     await this.prisma.notification.updateMany({
       where: { id, userId },
       data: { readAt: new Date() },
