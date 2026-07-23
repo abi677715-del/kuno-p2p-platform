@@ -1,0 +1,257 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+  SUPPORT
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  BANNED
+}
+
+enum KycStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum Currency {
+  USDT
+  ETB
+}
+
+enum Network {
+  TRC20
+  ERC20
+}
+
+enum TxType {
+  DEPOSIT
+  WITHDRAWAL
+  LOCK
+  RELEASE
+  REFUND
+  FEE
+}
+
+enum TxStatus {
+  PENDING
+  CONFIRMED
+  FAILED
+}
+
+enum AdSide {
+  BUY
+  SELL
+}
+
+enum AdStatus {
+  ACTIVE
+  PAUSED
+}
+
+enum TradeStatus {
+  PENDING
+  PAID
+  ESCROW_LOCKED
+  COMPLETED
+  DISPUTED
+  CANCELLED
+}
+
+enum EscrowStatus {
+  LOCKED
+  RELEASED
+  REFUNDED
+}
+
+enum DisputeStatus {
+  OPEN
+  RESOLVED
+}
+
+model User {
+  id           String     @id @default(uuid())
+  email        String     @unique
+  phone        String?    @unique
+  passwordHash String
+  role         Role       @default(USER)
+  status       UserStatus @default(ACTIVE)
+  twoFaEnabled Boolean    @default(false)
+  twoFaSecret  String?
+  createdAt    DateTime   @default(now())
+
+  kycRecord        KycRecord?
+  wallets          Wallet[]
+  depositAddresses DepositAddress[]
+  ads              Ad[]
+  buyTrades        Trade[]          @relation("buyer")
+  sellTrades       Trade[]          @relation("seller")
+  tradeMessages    TradeMessage[]
+  disputesRaised   Dispute[]
+  notifications    Notification[]
+
+  @@map("users")
+}
+
+model KycRecord {
+  id           String    @id @default(uuid())
+  userId       String    @unique
+  user         User      @relation(fields: [userId], references: [id])
+  idType       String
+  idNumber     String
+  documentUrl  String
+  selfieUrl    String
+  status       KycStatus @default(PENDING)
+  reviewedBy   String?
+  reviewedAt   DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@map("kyc_records")
+}
+
+model Wallet {
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id])
+  currency      Currency
+  balance       Decimal  @default(0) @db.Decimal(20, 8)
+  lockedBalance Decimal  @default(0) @db.Decimal(20, 8)
+
+  transactions WalletTransaction[]
+
+  @@unique([userId, currency])
+  @@map("wallets")
+}
+
+model WalletTransaction {
+  id          String   @id @default(uuid())
+  walletId    String
+  wallet      Wallet   @relation(fields: [walletId], references: [id])
+  type        TxType
+  amount      Decimal  @db.Decimal(20, 8)
+  referenceId String?
+  status      TxStatus @default(PENDING)
+  createdAt   DateTime @default(now())
+
+  @@map("wallet_transactions")
+}
+
+model DepositAddress {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  network   Network
+  address   String   @unique
+  createdAt DateTime @default(now())
+
+  @@map("deposit_addresses")
+}
+
+model Ad {
+  id             String   @id @default(uuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id])
+  side           AdSide
+  priceEtb       Decimal  @db.Decimal(20, 4)
+  minLimitEtb    Decimal  @db.Decimal(20, 4)
+  maxLimitEtb    Decimal  @db.Decimal(20, 4)
+  paymentMethods String[]
+  status         AdStatus @default(ACTIVE)
+  createdAt      DateTime @default(now())
+
+  trades Trade[]
+
+  @@map("ads")
+}
+
+model Trade {
+  id         String      @id @default(uuid())
+  adId       String
+  ad         Ad          @relation(fields: [adId], references: [id])
+  buyerId    String
+  buyer      User        @relation("buyer", fields: [buyerId], references: [id])
+  sellerId   String
+  seller     User        @relation("seller", fields: [sellerId], references: [id])
+  amountUsdt Decimal     @db.Decimal(20, 8)
+  amountEtb  Decimal     @db.Decimal(20, 4)
+  status     TradeStatus @default(PENDING)
+  createdAt  DateTime    @default(now())
+
+  escrow   Escrow?
+  messages TradeMessage[]
+  dispute  Dispute?
+
+  @@map("trades")
+}
+
+model Escrow {
+  id         String       @id @default(uuid())
+  tradeId    String       @unique
+  trade      Trade        @relation(fields: [tradeId], references: [id])
+  amount     Decimal      @db.Decimal(20, 8)
+  status     EscrowStatus @default(LOCKED)
+  releasedAt DateTime?
+
+  @@map("escrow_ledger")
+}
+
+model TradeMessage {
+  id            String   @id @default(uuid())
+  tradeId       String
+  trade         Trade    @relation(fields: [tradeId], references: [id])
+  senderId      String
+  sender        User     @relation(fields: [senderId], references: [id])
+  message       String
+  attachmentUrl String?
+  createdAt     DateTime @default(now())
+
+  @@map("trade_messages")
+}
+
+model Dispute {
+  id         String        @id @default(uuid())
+  tradeId    String        @unique
+  trade      Trade         @relation(fields: [tradeId], references: [id])
+  raisedById String
+  raisedBy   User          @relation(fields: [raisedById], references: [id])
+  reason     String
+  status     DisputeStatus @default(OPEN)
+  resolvedBy String?
+  resolution String?
+  createdAt  DateTime      @default(now())
+
+  @@map("disputes")
+}
+
+model Notification {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  type      String
+  payload   Json
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@map("notifications")
+}
+
+model AdminAuditLog {
+  id        String   @id @default(uuid())
+  adminId   String
+  action    String
+  targetId  String?
+  createdAt DateTime @default(now())
+
+  @@map("admin_audit_logs")
+}
