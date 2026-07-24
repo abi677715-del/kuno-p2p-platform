@@ -9,6 +9,7 @@ const links = [
   { href: '/notifications', label: 'Notifications', description: 'Updates on your trades and account' },
   { href: '/kyc', label: 'Verification', description: 'Complete KYC to unlock higher limits' },
   { href: '/settings/2fa', label: 'Settings', description: 'Manage two-factor authentication' },
+  { href: '/support', label: 'Support', description: 'FAQs and help requests' },
 ];
 
 const adminLinks = [
@@ -16,6 +17,7 @@ const adminLinks = [
   { href: '/admin/kyc', label: 'KYC review', description: 'Approve or reject identity verification' },
   { href: '/admin/wallet', label: 'Deposits & withdrawals', description: 'Confirm pending on-chain transactions' },
   { href: '/admin/revenue', label: 'Revenue', description: 'Platform commission collected' },
+  { href: '/admin/support', label: 'Support tickets', description: 'Respond to user help requests' },
 ];
 
 function getRole(): string | null {
