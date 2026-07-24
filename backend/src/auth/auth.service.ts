@@ -48,22 +48,23 @@ export class AuthService {
       throw new UnauthorizedException('Invalid email or password');
     }
 
-    const passwordMatches = await bcrypt.compare(dto.password, user.passwordHash);
+      const passwordMatches = await bcrypt.compare(dto.password, user.passwordHash);
     if (!passwordMatches) {
       throw new UnauthorizedException('Invalid email or password');
     }
 
-    if (user.twoFaEnabled) {
+    const currentUser = await this.usersService.promoteIfBootstrapAdmin(user);
+
+    if (currentUser.twoFaEnabled) {
       const preAuthToken = await this.jwtService.signAsync(
-        { sub: user.id, twoFaPending: true },
+        { sub: currentUser.id, twoFaPending: true },
         { secret: process.env.JWT_SECRET, expiresIn: '5m' },
       );
       return { requiresTwoFa: true, preAuthToken };
     }
 
-    return this.issueTokens(user.id, user.email, user.role);
+    return this.issueTokens(currentUser.id, currentUser.email, currentUser.role);
   }
-
   async verifyTwoFaLogin(dto: VerifyTwoFaLoginDto) {
     let payload: { sub: string; twoFaPending: boolean };
     try {
