@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { PrismaService } from '../common/prisma.service';
 import { Currency, Role, User } from '@prisma/client';
 
@@ -24,7 +25,7 @@ export class UsersService {
 
   /**
    * Lets ops promote an account to ADMIN just by listing its email in the
-   * ADMIN_EMAILS env var, instead of hand-editing the database — applied
+   * ADMIN_EMAILS env var, instead of hand-editing the database вЂ” applied
    * on every login so it also catches accounts that already existed.
    */
   async promoteIfBootstrapAdmin(user: User): Promise<User> {
@@ -47,12 +48,20 @@ export class UsersService {
 
   /**
    * Creates a user plus their USDT and ETB wallets in a single transaction,
-   * so a user can never exist without wallets to trade with.
+   * so a user can never exist without wallets to trade with. Also generates
+   * an emailVerificationToken so the caller can send a confirmation email.
    */
-  async createWithWallets(email: string, passwordHash: string, phone?: string) {
+  async createWithWallets(email: string, passwordHash: string, fullName: string, phone: string) {
     return this.prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
-        data: { email, passwordHash, phone, role: isBootstrapAdmin(email) ? Role.ADMIN : Role.USER },
+        data: {
+          email,
+          passwordHash,
+          fullName,
+          phone,
+          emailVerificationToken: randomUUID(),
+          role: isBootstrapAdmin(email) ? Role.ADMIN : Role.USER,
+        },
       });
 
       await tx.wallet.createMany({
@@ -63,6 +72,15 @@ export class UsersService {
       });
 
       return user;
+    });
+  }
+
+  async verifyEmail(token: string) {
+    const user = await this.prisma.user.findUnique({ where: { emailVerificationToken: token } });
+    if (!user) return null;
+    return this.prisma.user.update({
+      where: { id: user.id },
+      data: { emailVerified: true, emailVerificationToken: null },
     });
   }
 }
