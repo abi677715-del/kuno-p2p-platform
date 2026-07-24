@@ -9,6 +9,7 @@ import * as bcrypt from 'bcrypt';
 import { authenticator } from 'otplib';
 import * as QRCode from 'qrcode';
 import { UsersService } from '../users/users.service';
+import { MailService } from '../mail/mail.service';
 import { SignupDto } from './dto/signup.dto';
 import { LoginDto } from './dto/login.dto';
 import { EnableTwoFaDto } from './dto/enable-two-fa.dto';
@@ -23,6 +24,7 @@ export class AuthService {
   constructor(
     private usersService: UsersService,
     private jwtService: JwtService,
+    private mailService: MailService,
   ) {}
 
   async signup(dto: SignupDto) {
@@ -32,9 +34,19 @@ export class AuthService {
     }
 
     const passwordHash = await bcrypt.hash(dto.password, SALT_ROUNDS);
-    const user = await this.usersService.createWithWallets(dto.email, passwordHash, dto.phone);
+    const user = await this.usersService.createWithWallets(dto.email, passwordHash, dto.fullName, dto.phone);
+
+    if (user.emailVerificationToken) {
+      await this.mailService.sendVerificationEmail(user.email, user.emailVerificationToken);
+    }
 
     return this.issueTokens(user.id, user.email, user.role);
+  }
+
+  async verifyEmail(token: string) {
+    const user = await this.usersService.verifyEmail(token);
+    if (!user) throw new BadRequestException('Invalid or expired verification link');
+    return { verified: true };
   }
 
   /**
@@ -48,7 +60,7 @@ export class AuthService {
       throw new UnauthorizedException('Invalid email or password');
     }
 
-      const passwordMatches = await bcrypt.compare(dto.password, user.passwordHash);
+    const passwordMatches = await bcrypt.compare(dto.password, user.passwordHash);
     if (!passwordMatches) {
       throw new UnauthorizedException('Invalid email or password');
     }
@@ -65,6 +77,7 @@ export class AuthService {
 
     return this.issueTokens(currentUser.id, currentUser.email, currentUser.role);
   }
+
   async verifyTwoFaLogin(dto: VerifyTwoFaLoginDto) {
     let payload: { sub: string; twoFaPending: boolean };
     try {
@@ -106,7 +119,7 @@ export class AuthService {
   async enableTwoFa(userId: string, dto: EnableTwoFaDto) {
     const isValid = authenticator.verify({ token: dto.code, secret: dto.secret });
     if (!isValid) {
-      throw new BadRequestException('That code doesn\u2019t match — check your authenticator app and try again');
+      throw new BadRequestException('That code doesn\u2019t match вЂ” check your authenticator app and try again');
     }
     await this.usersService.setTwoFaSecret(userId, dto.secret);
     await this.usersService.setTwoFaEnabled(userId, true);
