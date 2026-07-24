@@ -5,7 +5,9 @@ import { useState } from 'react';
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
 export default function SignupPage() {
+  const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -18,7 +20,7 @@ export default function SignupPage() {
       const res = await fetch(`${API_URL}/auth/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ fullName, email, phone, password }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -39,12 +41,31 @@ export default function SignupPage() {
       <form onSubmit={handleSubmit} className="w-full max-w-sm bg-surface border border-white/10 rounded-2xl p-8">
         <h1 className="font-display font-bold text-2xl text-paper mb-6">Create your account</h1>
 
+        <label className="text-sm text-muted block mb-1">Full name</label>
+        <input
+          type="text"
+          required
+          value={fullName}
+          onChange={(e) => setFullName(e.target.value)}
+          className="w-full bg-surfaceRaised rounded-md px-3 py-2 text-paper mb-4 outline-none focus:ring-2 focus:ring-teal"
+        />
+
         <label className="text-sm text-muted block mb-1">Email</label>
         <input
           type="email"
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
+          className="w-full bg-surfaceRaised rounded-md px-3 py-2 text-paper mb-4 outline-none focus:ring-2 focus:ring-teal"
+        />
+
+        <label className="text-sm text-muted block mb-1">Phone</label>
+        <input
+          type="tel"
+          required
+          placeholder="+2519xxxxxxxx"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
           className="w-full bg-surfaceRaised rounded-md px-3 py-2 text-paper mb-4 outline-none focus:ring-2 focus:ring-teal"
         />
 
@@ -65,7 +86,7 @@ export default function SignupPage() {
           disabled={loading}
           className="w-full rounded-md bg-gold px-4 py-3 text-ink font-medium hover:bg-gold/90 transition-colors disabled:opacity-60"
         >
-          {loading ? 'Creating account…' : 'Create account'}
+          {loading ? 'Creating accountвЂ¦' : 'Create account'}
         </button>
 
         <p className="text-sm text-muted mt-4 text-center">
