@@ -61,6 +61,13 @@ export class TradesController {
     return this.tradesService.listOpenDisputes();
   }
 
+  @Get('admin/disputes/:tradeId/messages')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
+  getDisputeMessages(@Param('tradeId') tradeId: string) {
+    return this.tradesService.getMessagesForAdmin(tradeId);
+  }
+
   @Post('admin/disputes/:id/resolve')
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN)
