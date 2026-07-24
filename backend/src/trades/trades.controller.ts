@@ -19,6 +19,11 @@ export class TradesController {
     return this.tradesService.createTrade(req.user.userId, dto);
   }
 
+  @Get()
+  listMine(@Req() req: any) {
+    return this.tradesService.listMine(req.user.userId);
+  }
+
   @Get(':id')
   getOne(@Param('id') id: string) {
     return this.tradesService.findById(id);
