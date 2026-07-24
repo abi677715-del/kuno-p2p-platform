@@ -183,6 +183,15 @@ export class TradesService {
 
   // --- Admin: dispute resolution ---
 
+  /** Lets an admin read a trade's full chat log while reviewing a dispute, without being a participant. */
+  getMessagesForAdmin(tradeId: string) {
+    return this.prisma.tradeMessage.findMany({
+      where: { tradeId },
+      orderBy: { createdAt: 'asc' },
+      include: { sender: { select: { email: true } } },
+    });
+  }
+
   listOpenDisputes() {
     return this.prisma.dispute.findMany({
       where: { status: DisputeStatus.OPEN },
