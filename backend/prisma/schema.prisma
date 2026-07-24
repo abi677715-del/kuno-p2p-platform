@@ -80,6 +80,11 @@ enum DisputeStatus {
   RESOLVED
 }
 
+enum SupportTicketStatus {
+  OPEN
+  RESOLVED
+}
+
 model User {
   id           String     @id @default(uuid())
   email        String     @unique
@@ -100,6 +105,7 @@ model User {
   tradeMessages    TradeMessage[]
   disputesRaised   Dispute[]
   notifications    Notification[]
+  supportTickets   SupportTicket[]
 
   @@map("users")
 }
@@ -244,6 +250,18 @@ model Notification {
   createdAt DateTime  @default(now())
 
   @@map("notifications")
+}
+
+model SupportTicket {
+  id        String              @id @default(uuid())
+  userId    String
+  user      User                @relation(fields: [userId], references: [id])
+  subject   String
+  message   String
+  status    SupportTicketStatus @default(OPEN)
+  createdAt DateTime            @default(now())
+
+  @@map("support_tickets")
 }
 
 model AdminAuditLog {
