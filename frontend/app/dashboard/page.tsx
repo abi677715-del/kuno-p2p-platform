@@ -11,14 +11,33 @@ const links = [
   { href: '/settings/2fa', label: 'Settings', description: 'Manage two-factor authentication' },
 ];
 
+const adminLinks = [
+  { href: '/admin/disputes', label: 'Dispute resolution', description: 'Review trade chats and resolve disputes' },
+  { href: '/admin/kyc', label: 'KYC review', description: 'Approve or reject identity verification' },
+  { href: '/admin/wallet', label: 'Deposits & withdrawals', description: 'Confirm pending on-chain transactions' },
+  { href: '/admin/revenue', label: 'Revenue', description: 'Platform commission collected' },
+];
+
+function getRole(): string | null {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+  if (!token) return null;
+  try {
+    return JSON.parse(atob(token.split('.')[1])).role ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export default function DashboardPage() {
   const [ready, setReady] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     if (!localStorage.getItem('accessToken')) {
       window.location.href = '/login';
       return;
     }
+    setIsAdmin(getRole() === 'ADMIN');
     setReady(true);
   }, []);
 
@@ -54,6 +73,24 @@ export default function DashboardPage() {
             </a>
           ))}
         </div>
+
+        {isAdmin && (
+          <div className="mt-10">
+            <h2 className="font-display font-bold text-lg text-gold mb-4">Admin</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {adminLinks.map((link) => (
+                <a
+                  key={link.href}
+                  href={link.href}
+                  className="block bg-surface border border-gold/30 rounded-xl p-5 hover:border-gold/60 transition-colors"
+                >
+                  <p className="font-display font-medium text-paper">{link.label}</p>
+                  <p className="text-sm text-muted mt-1">{link.description}</p>
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </main>
   );
