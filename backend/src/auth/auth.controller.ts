@@ -5,6 +5,7 @@ import { LoginDto } from './dto/login.dto';
 import { EnableTwoFaDto } from './dto/enable-two-fa.dto';
 import { TwoFaCodeDto } from './dto/two-fa-code.dto';
 import { VerifyTwoFaLoginDto } from './dto/verify-two-fa-login.dto';
+import { VerifyEmailDto } from './dto/verify-email.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
 
 @Controller('auth')
@@ -20,6 +21,12 @@ export class AuthController {
   @HttpCode(200)
   login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
+  }
+
+  @Post('verify-email')
+  @HttpCode(200)
+  verifyEmail(@Body() dto: VerifyEmailDto) {
+    return this.authService.verifyEmail(dto.token);
   }
 
   @Post('2fa/verify-login')
