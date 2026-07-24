@@ -1,160 +1,100 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { apiFetch } from '@/lib/api';
 
-type Ad = {
-  id: string;
-  side: 'BUY' | 'SELL';
-  priceEtb: string;
-  minLimitEtb: string;
-  maxLimitEtb: string;
-  paymentMethods: string[];
-  user: { email: string };
-};
+const links = [
+  { href: '/marketplace', label: 'Marketplace', description: 'Browse and post buy/sell offers' },
+  { href: '/trades', label: 'Trades', description: 'Track your active and past trades' },
+  { href: '/wallet', label: 'Wallet', description: 'Deposit, withdraw, and view balances' },
+  { href: '/notifications', label: 'Notifications', description: 'Updates on your trades and account' },
+  { href: '/kyc', label: 'Verification', description: 'Complete KYC to unlock higher limits' },
+  { href: '/settings/2fa', label: 'Settings', description: 'Manage two-factor authentication' },
+  { href: '/support', label: 'Support', description: 'FAQs and help requests' },
+];
 
-export default function MarketplacePage() {
-  const [ads, setAds] = useState<Ad[]>([]);
-  const [error, setError] = useState('');
-  const [showForm, setShowForm] = useState(false);
+const adminLinks = [
+  { href: '/admin/disputes', label: 'Dispute resolution', description: 'Review trade chats and resolve disputes' },
+  { href: '/admin/kyc', label: 'KYC review', description: 'Approve or reject identity verification' },
+  { href: '/admin/wallet', label: 'Deposits & withdrawals', description: 'Confirm pending on-chain transactions' },
+  { href: '/admin/revenue', label: 'Revenue', description: 'Platform commission collected' },
+  { href: '/admin/support', label: 'Support tickets', description: 'Respond to user help requests' },
+];
 
-  async function loadAds() {
-    try {
-      const data = await apiFetch('/ads');
-      setAds(data);
-    } catch (err: any) {
-      setError(err.message);
-    }
+function getRole(): string | null {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+  if (!token) return null;
+  try {
+    return JSON.parse(atob(token.split('.')[1])).role ?? null;
+  } catch {
+    return null;
   }
+}
+
+export default function DashboardPage() {
+  const [ready, setReady] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
-    loadAds();
+    if (!localStorage.getItem('accessToken')) {
+      window.location.href = '/login';
+      return;
+    }
+    setIsAdmin(getRole() === 'ADMIN');
+    setReady(true);
   }, []);
+
+  if (!ready) return null;
+
+  function logout() {
+    localStorage.removeItem('accessToken');
+    window.location.href = '/login';
+  }
 
   return (
     <main className="min-h-screen bg-ink px-6 py-10 md:px-12">
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-8">
-          <h1 className="font-display font-bold text-2xl text-paper">Marketplace</h1>
+          <h1 className="font-display font-bold text-2xl text-paper">Dashboard</h1>
           <button
-            onClick={() => setShowForm((v) => !v)}
-            className="rounded-md bg-gold px-4 py-2 text-ink font-medium hover:bg-gold/90 transition-colors"
+            onClick={logout}
+            className="rounded-md border border-white/15 px-4 py-2 text-sm text-paper font-medium hover:border-white/30 transition-colors"
           >
-            {showForm ? 'Close' : 'Post an offer'}
+            Log out
           </button>
         </div>
 
-        {showForm && <CreateAdForm onCreated={() => { setShowForm(false); loadAds(); }} />}
-
-        {error && <p className="text-red-400 text-sm mb-4">{error}</p>}
-
-        <div className="space-y-3">
-          {ads.map((ad) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {links.map((link) => (
             <a
-              key={ad.id}
-              href={`/marketplace/${ad.id}`}
+              key={link.href}
+              href={link.href}
               className="block bg-surface border border-white/10 rounded-xl p-5 hover:border-white/25 transition-colors"
             >
-              <div className="flex items-center justify-between">
-                <div>
-                  <span
-                    className={`text-xs font-mono uppercase tracking-wide ${
-                      ad.side === 'SELL' ? 'text-teal' : 'text-gold'
-                    }`}
-                  >
-                    {ad.side === 'SELL' ? 'Selling USDT' : 'Buying USDT'}
-                  </span>
-                  <p className="text-paper font-medium mt-1">{ad.user.email}</p>
-                  <p className="text-xs text-muted mt-1">{ad.paymentMethods.join(', ')}</p>
-                </div>
-                <div className="text-right">
-                  <p className="font-mono text-lg text-paper">{ad.priceEtb} ETB</p>
-                  <p className="text-xs text-muted">
-                    Limits {ad.minLimitEtb}–{ad.maxLimitEtb} ETB
-                  </p>
-                </div>
-              </div>
+              <p className="font-display font-medium text-paper">{link.label}</p>
+              <p className="text-sm text-muted mt-1">{link.description}</p>
             </a>
           ))}
-          {ads.length === 0 && !error && <p className="text-muted text-sm">No active offers yet.</p>}
         </div>
+
+        {isAdmin && (
+          <div className="mt-10">
+            <h2 className="font-display font-bold text-lg text-gold mb-4">Admin</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {adminLinks.map((link) => (
+                <a
+                  key={link.href}
+                  href={link.href}
+                  className="block bg-surface border border-gold/30 rounded-xl p-5 hover:border-gold/60 transition-colors"
+                >
+                  <p className="font-display font-medium text-paper">{link.label}</p>
+                  <p className="text-sm text-muted mt-1">{link.description}</p>
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </main>
   );
 }
 
-function CreateAdForm({ onCreated }: { onCreated: () => void }) {
-  const [side, setSide] = useState<'BUY' | 'SELL'>('SELL');
-  const [priceEtb, setPriceEtb] = useState('123.40');
-  const [minLimitEtb, setMinLimitEtb] = useState('500');
-  const [maxLimitEtb, setMaxLimitEtb] = useState('50000');
-  const [paymentMethods, setPaymentMethods] = useState('Telebirr, CBE Birr');
-  const [error, setError] = useState('');
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError('');
-    try {
-      await apiFetch('/ads', {
-        method: 'POST',
-        body: JSON.stringify({
-          side,
-          priceEtb,
-          minLimitEtb,
-          maxLimitEtb,
-          paymentMethods: paymentMethods.split(',').map((s) => s.trim()).filter(Boolean),
-        }),
-      });
-      onCreated();
-    } catch (err: any) {
-      setError(err.message);
-    }
-  }
-
-  return (
-    <form onSubmit={handleSubmit} className="bg-surface border border-white/10 rounded-xl p-6 mb-8 space-y-4">
-      <div className="flex gap-3">
-        <button
-          type="button"
-          onClick={() => setSide('SELL')}
-          className={`flex-1 rounded-md py-2 text-sm font-medium ${side === 'SELL' ? 'bg-teal text-ink' : 'bg-surfaceRaised text-muted'}`}
-        >
-          I'm selling USDT
-        </button>
-        <button
-          type="button"
-          onClick={() => setSide('BUY')}
-          className={`flex-1 rounded-md py-2 text-sm font-medium ${side === 'BUY' ? 'bg-gold text-ink' : 'bg-surfaceRaised text-muted'}`}
-        >
-          I'm buying USDT
-        </button>
-      </div>
-
-      <Field label="Price per USDT (ETB)" value={priceEtb} onChange={setPriceEtb} />
-      <div className="grid grid-cols-2 gap-4">
-        <Field label="Min limit (ETB)" value={minLimitEtb} onChange={setMinLimitEtb} />
-        <Field label="Max limit (ETB)" value={maxLimitEtb} onChange={setMaxLimitEtb} />
-      </div>
-      <Field label="Payment methods (comma separated)" value={paymentMethods} onChange={setPaymentMethods} />
-
-      {error && <p className="text-red-400 text-sm">{error}</p>}
-
-      <button type="submit" className="w-full rounded-md bg-gold py-2 text-ink font-medium hover:bg-gold/90 transition-colors">
-        Post offer
-      </button>
-    </form>
-  );
-}
-
-function Field({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
-  return (
-    <label className="block">
-      <span className="text-xs text-muted block mb-1">{label}</span>
-      <input
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full bg-surfaceRaised rounded-md px-3 py-2 text-paper outline-none focus:ring-2 focus:ring-teal"
-      />
-    </label>
-  );
-}
