@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { apiFetch } from '@/lib/api';
+import { io, Socket } from 'socket.io-client';
+import { apiFetch, API_URL } from '@/lib/api';
 
 const STATUS_COPY: Record<string, string> = {
   PENDING: 'Waiting for escrow to lock',
@@ -13,6 +14,16 @@ const STATUS_COPY: Record<string, string> = {
   CANCELLED: 'Trade cancelled',
 };
 
+function getUserId(): string | null {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+  if (!token) return null;
+  try {
+    return JSON.parse(atob(token.split('.')[1])).sub ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export default function TradeRoomPage() {
   const params = useParams();
   const tradeId = params.id as string;
@@ -21,24 +32,37 @@ export default function TradeRoomPage() {
   const [text, setText] = useState('');
   const [error, setError] = useState('');
   const bottomRef = useRef<HTMLDivElement>(null);
+  const socketRef = useRef<Socket | null>(null);
+  const userId = useRef<string | null>(null);
 
-  async function refresh() {
+  async function refreshTrade() {
     try {
-      const [t, m] = await Promise.all([
-        apiFetch(`/trades/${tradeId}`),
-        apiFetch(`/trades/${tradeId}/messages`),
-      ]);
-      setTrade(t);
-      setMessages(m);
+      setTrade(await apiFetch(`/trades/${tradeId}`));
     } catch (err: any) {
       setError(err.message);
     }
   }
 
   useEffect(() => {
-    refresh();
-    const interval = setInterval(refresh, 4000); // polling; swap for the socket.io gateway when ready
-    return () => clearInterval(interval);
+    userId.current = getUserId();
+
+    apiFetch(`/trades/${tradeId}/messages`)
+      .then(setMessages)
+      .catch((err) => setError(err.message));
+    refreshTrade();
+    const statusInterval = setInterval(refreshTrade, 5000);
+
+    const socket = io(API_URL, { transports: ['websocket'] });
+    socketRef.current = socket;
+    socket.emit('joinTrade', tradeId);
+    socket.on('newMessage', (msg) => {
+      setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]));
+    });
+
+    return () => {
+      clearInterval(statusInterval);
+      socket.disconnect();
+    };
   }, [tradeId]);
 
   useEffect(() => {
@@ -48,7 +72,7 @@ export default function TradeRoomPage() {
   async function act(action: 'paid' | 'confirm' | 'cancel') {
     try {
       await apiFetch(`/trades/${tradeId}/${action}`, { method: 'POST' });
-      refresh();
+      refreshTrade();
     } catch (err: any) {
       setError(err.message);
     }
@@ -59,25 +83,17 @@ export default function TradeRoomPage() {
     if (!reason) return;
     try {
       await apiFetch(`/trades/${tradeId}/dispute`, { method: 'POST', body: JSON.stringify({ reason }) });
-      refresh();
+      refreshTrade();
     } catch (err: any) {
       setError(err.message);
     }
   }
 
-  async function sendMessage(e: React.FormEvent) {
+  function sendMessage(e: React.FormEvent) {
     e.preventDefault();
-    if (!text.trim()) return;
-    try {
-      await apiFetch(`/trades/${tradeId}/messages`, {
-        method: 'POST',
-        body: JSON.stringify({ message: text }),
-      });
-      setText('');
-      refresh();
-    } catch (err: any) {
-      setError(err.message);
-    }
+    if (!text.trim() || !userId.current || !socketRef.current) return;
+    socketRef.current.emit('sendMessage', { tradeId, userId: userId.current, message: text });
+    setText('');
   }
 
   if (!trade) return <main className="min-h-screen bg-ink px-6 py-10 text-muted">{error || 'Loading…'}</main>;
