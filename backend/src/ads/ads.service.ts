@@ -25,6 +25,21 @@ export class AdsService {
     });
   }
 
+  /** Median price across active ads — a live, manipulation-resistant stand-in for a market rate. */
+  async getIndicativeRate() {
+    const ads = await this.prisma.ad.findMany({
+      where: { status: AdStatus.ACTIVE },
+      select: { priceEtb: true },
+    });
+    if (ads.length === 0) {
+      return { rate: 123.4, sampleSize: 0 };
+    }
+    const prices = ads.map((a) => parseFloat(a.priceEtb.toString())).sort((a, b) => a - b);
+    const mid = Math.floor(prices.length / 2);
+    const median = prices.length % 2 === 0 ? (prices[mid - 1] + prices[mid]) / 2 : prices[mid];
+    return { rate: Math.round(median * 100) / 100, sampleSize: prices.length };
+  }
+
   findActive(side?: AdSide) {
     return this.prisma.ad.findMany({
       where: { status: AdStatus.ACTIVE, ...(side ? { side } : {}) },
