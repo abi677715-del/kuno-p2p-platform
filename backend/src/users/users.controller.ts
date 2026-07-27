@@ -3,6 +3,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { UsersService } from './users.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { UpdateAvatarDto } from './dto/update-avatar.dto';
 
 @Controller('users')
 @UseGuards(JwtAuthGuard)
@@ -19,6 +20,7 @@ export class UsersController {
       role: user?.role,
       emailVerified: user?.emailVerified,
       twoFaEnabled: user?.twoFaEnabled,
+      avatar: user?.avatar,
     };
   }
 
@@ -31,5 +33,11 @@ export class UsersController {
   @Post('me/change-password')
   changePassword(@Req() req: any, @Body() dto: ChangePasswordDto) {
     return this.usersService.changePassword(req.user.userId, dto.currentPassword, dto.newPassword);
+  }
+
+  @Post('me/avatar')
+  async updateAvatar(@Req() req: any, @Body() dto: UpdateAvatarDto) {
+    const user = await this.usersService.setAvatar(req.user.userId, dto.avatar);
+    return { avatar: user.avatar };
   }
 }
