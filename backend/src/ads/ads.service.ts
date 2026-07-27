@@ -21,6 +21,7 @@ export class AdsService {
         minLimitEtb: dto.minLimitEtb,
         maxLimitEtb: dto.maxLimitEtb,
         paymentMethods: dto.paymentMethods,
+        description: dto.description,
       },
     });
   }
@@ -43,7 +44,7 @@ export class AdsService {
   findActive(side?: AdSide) {
     return this.prisma.ad.findMany({
       where: { status: AdStatus.ACTIVE, ...(side ? { side } : {}) },
-      include: { user: { select: { id: true, email: true, createdAt: true } } },
+      include: { user: { select: { id: true, email: true, createdAt: true, lastSeenAt: true } } },
       orderBy: { createdAt: 'desc' },
     });
   }
@@ -51,7 +52,7 @@ export class AdsService {
   async findById(id: string) {
     const ad = await this.prisma.ad.findUnique({
       where: { id },
-      include: { user: { select: { id: true, email: true } } },
+      include: { user: { select: { id: true, email: true, lastSeenAt: true } } },
     });
     if (!ad) throw new NotFoundException('Ad not found');
     return ad;
