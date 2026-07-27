@@ -31,7 +31,7 @@ export class SupportController {
   @Post('admin/tickets/:id/resolve')
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN)
-  resolve(@Param('id') id: string) {
-    return this.supportService.resolve(id);
+  resolve(@Req() req: any, @Param('id') id: string) {
+    return this.supportService.resolve(req.user.userId, id);
   }
 }
