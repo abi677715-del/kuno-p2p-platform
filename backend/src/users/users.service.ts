@@ -30,6 +30,9 @@ export class UsersService {
     if (user.role === Role.ADMIN || !isBootstrapAdmin(user.email)) {
       return user;
     }
+    await this.prisma.adminAuditLog.create({
+      data: { adminId: user.id, action: 'ADMIN_PROMOTED_VIA_BOOTSTRAP', targetId: user.id },
+    });
     return this.prisma.user.update({ where: { id: user.id }, data: { role: Role.ADMIN } });
   }
 
@@ -77,7 +80,7 @@ export class UsersService {
     });
   }
 
-    updateProfile(userId: string, data: { fullName?: string; phone?: string }) {
+  updateProfile(userId: string, data: { fullName?: string; phone?: string }) {
     return this.prisma.user.update({ where: { id: userId }, data });
   }
 
