@@ -86,7 +86,7 @@ export default function SignupPage() {
           disabled={loading}
           className="w-full rounded-md bg-gold px-4 py-3 text-ink font-medium hover:bg-gold/90 transition-colors disabled:opacity-60"
         >
-          {loading ? 'Creating accountвЂ¦' : 'Create account'}
+          {loading ? 'Creating account…' : 'Create account'}
         </button>
 
         <p className="text-sm text-muted mt-4 text-center">
