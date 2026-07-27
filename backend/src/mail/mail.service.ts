@@ -6,8 +6,7 @@ const APP_NAME = 'Birrly';
 export class MailService {
   private readonly logger = new Logger(MailService.name);
 
-  async sendVerificationEmail(to: string, token: string) {
-    const verifyUrl = `${process.env.FRONTEND_URL}/verify-email?token=${token}`;
+  private async send(to: string, subject: string, html: string) {
     try {
       const res = await fetch('https://api.resend.com/emails', {
         method: 'POST',
@@ -18,12 +17,8 @@ export class MailService {
         body: JSON.stringify({
           from: process.env.MAIL_FROM ?? 'onboarding@resend.dev',
           to,
-          subject: `Confirm your ${APP_NAME} account`,
-          html: `
-            <p>Welcome to ${APP_NAME}!</p>
-            <p>Please confirm your email address by clicking the link below:</p>
-            <p><a href="${verifyUrl}">${verifyUrl}</a></p>
-          `,
+          subject,
+          html,
         }),
       });
       if (!res.ok) {
@@ -31,7 +26,32 @@ export class MailService {
         throw new Error(`Resend API returned ${res.status}: ${body}`);
       }
     } catch (err) {
-      this.logger.error(`Failed to send verification email to ${to}`, err as Error);
+      this.logger.error(`Failed to send email to ${to}`, err as Error);
     }
+  }
+
+  sendVerificationEmail(to: string, token: string) {
+    const verifyUrl = `${process.env.FRONTEND_URL}/verify-email?token=${token}`;
+    return this.send(
+      to,
+      `Confirm your ${APP_NAME} account`,
+      `
+        <p>Welcome to ${APP_NAME}!</p>
+        <p>Please confirm your email address by clicking the link below:</p>
+        <p><a href="${verifyUrl}">${verifyUrl}</a></p>
+      `,
+    );
+  }
+
+  sendTradeUpdateEmail(to: string, subject: string, message: string, tradeId: string) {
+    const tradeUrl = `${process.env.FRONTEND_URL}/trades/${tradeId}`;
+    return this.send(
+      to,
+      `${subject} — ${APP_NAME}`,
+      `
+        <p>${message}</p>
+        <p><a href="${tradeUrl}">View trade</a></p>
+      `,
+    );
   }
 }
