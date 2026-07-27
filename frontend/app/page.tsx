@@ -1,22 +1,37 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
-const INDICATIVE_RATE = 123.4; // ETB per 1 USDT — replace with live market data feed
+const FALLBACK_RATE = 123.4; // used until the live rate loads, or if it fails to load
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
 export default function LandingPage() {
   const [usdt, setUsdt] = useState('100');
+  const [rate, setRate] = useState(FALLBACK_RATE);
+  const [rateSampleSize, setRateSampleSize] = useState(0);
+
+  useEffect(() => {
+    fetch(`${API_URL}/ads/rate`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.rate) {
+          setRate(data.rate);
+          setRateSampleSize(data.sampleSize ?? 0);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const etb = useMemo(() => {
     const n = parseFloat(usdt);
     if (Number.isNaN(n)) return '0.00';
-    return (n * INDICATIVE_RATE).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  }, [usdt]);
+    return (n * rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }, [usdt, rate]);
 
   return (
     <main>
       <Nav />
-      <Hero usdt={usdt} setUsdt={setUsdt} etb={etb} />
+      <Hero usdt={usdt} setUsdt={setUsdt} etb={etb} rate={rate} isLive={rateSampleSize > 0} />
       <HowItWorks />
       <Trust />
       <Cta />
@@ -52,10 +67,14 @@ function Hero({
   usdt,
   setUsdt,
   etb,
+  rate,
+  isLive,
 }: {
   usdt: string;
   setUsdt: (v: string) => void;
   etb: string;
+  rate: number;
+  isLive: boolean;
 }) {
   return (
     <section className="px-6 md:px-12 pt-10 pb-24 max-w-6xl mx-auto grid md:grid-cols-2 gap-12 items-center">
@@ -87,7 +106,10 @@ function Hero({
       </div>
 
       <div className="bg-surface border border-white/10 rounded-2xl p-6 md:p-8">
-        <p className="text-sm text-muted mb-4">Indicative rate — actual price set by each trader's offer</p>
+        <p className="text-sm text-muted mb-4 flex items-center gap-2">
+          {isLive && <span className="inline-block h-1.5 w-1.5 rounded-full bg-teal animate-pulse" />}
+          {isLive ? 'Live rate — median of active offers' : 'Indicative rate — actual price set by each trader\'s offer'}
+        </p>
         <div className="flex items-center gap-3 mb-4">
           <div className="flex-1 bg-surfaceRaised rounded-lg px-4 py-3">
             <label className="text-xs text-muted block mb-1">You send</label>
@@ -112,7 +134,7 @@ function Hero({
             </div>
           </div>
         </div>
-        <p className="text-xs text-muted mt-4 font-mono">1 USDT ≈ {INDICATIVE_RATE} ETB</p>
+        <p className="text-xs text-muted mt-4 font-mono">1 USDT ≈ {rate} ETB</p>
       </div>
     </section>
   );
