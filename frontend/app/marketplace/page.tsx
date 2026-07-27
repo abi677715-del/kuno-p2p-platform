@@ -11,8 +11,26 @@ type Ad = {
   minLimitEtb: string;
   maxLimitEtb: string;
   paymentMethods: string[];
-  user: { email: string };
+  description?: string;
+  user: { email: string; lastSeenAt?: string };
 };
+
+const ONLINE_WINDOW_MS = 5 * 60 * 1000;
+
+function isOnline(lastSeenAt?: string) {
+  if (!lastSeenAt) return false;
+  return Date.now() - new Date(lastSeenAt).getTime() < ONLINE_WINDOW_MS;
+}
+
+function lastSeenLabel(lastSeenAt?: string) {
+  if (!lastSeenAt) return 'Offline';
+  const minutes = Math.floor((Date.now() - new Date(lastSeenAt).getTime()) / 60000);
+  if (minutes < 1) return 'Just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
 
 type Trade = {
   id: string;
@@ -112,7 +130,17 @@ export default function MarketplacePage() {
                   >
                     {ad.side === 'SELL' ? 'Selling USDT' : 'Buying USDT'}
                   </span>
-                  <p className="text-paper font-medium mt-1">{ad.user.email}</p>
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <span
+                      className={`inline-block h-1.5 w-1.5 rounded-full ${
+                        isOnline(ad.user.lastSeenAt) ? 'bg-teal' : 'bg-muted'
+                      }`}
+                    />
+                    <p className="text-paper font-medium">{ad.user.email}</p>
+                    <span className="text-[11px] text-muted">
+                      {isOnline(ad.user.lastSeenAt) ? 'Online' : `Last seen ${lastSeenLabel(ad.user.lastSeenAt)}`}
+                    </span>
+                  </div>
                   <div className="flex items-center gap-1.5 mt-1.5">
                     {ad.paymentMethods.map((method) => (
                       <span
@@ -125,6 +153,7 @@ export default function MarketplacePage() {
                       </span>
                     ))}
                   </div>
+                  {ad.description && <p className="text-xs text-muted mt-1.5 max-w-sm">{ad.description}</p>}
                 </div>
                 <div className="text-right">
                   <p className="font-mono text-lg text-paper">{ad.priceEtb} ETB</p>
@@ -179,7 +208,19 @@ function CreateAdForm({ onCreated }: { onCreated: () => void }) {
   const [minLimitEtb, setMinLimitEtb] = useState('500');
   const [maxLimitEtb, setMaxLimitEtb] = useState('50000');
   const [paymentMethods, setPaymentMethods] = useState<string[]>(['Telebirr', 'CBE']);
+  const [description, setDescription] = useState('');
+  const [saveAsDefault, setSaveAsDefault] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    apiFetch('/users/me')
+      .then((data) => {
+        if (data?.defaultPaymentMethods?.length) {
+          setPaymentMethods(data.defaultPaymentMethods);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   function toggleMethod(label: string) {
     setPaymentMethods((prev) =>
@@ -197,8 +238,11 @@ function CreateAdForm({ onCreated }: { onCreated: () => void }) {
     try {
       await apiFetch('/ads', {
         method: 'POST',
-        body: JSON.stringify({ side, priceEtb, minLimitEtb, maxLimitEtb, paymentMethods }),
+        body: JSON.stringify({ side, priceEtb, minLimitEtb, maxLimitEtb, paymentMethods, description: description || undefined }),
       });
+      if (saveAsDefault) {
+        await apiFetch('/users/me', { method: 'PATCH', body: JSON.stringify({ defaultPaymentMethods: paymentMethods }) }).catch(() => {});
+      }
       onCreated();
     } catch (err: any) {
       setError(err.message);
@@ -254,7 +298,23 @@ function CreateAdForm({ onCreated }: { onCreated: () => void }) {
             );
           })}
         </div>
+        <label className="flex items-center gap-2 mt-2 text-xs text-muted">
+          <input type="checkbox" checked={saveAsDefault} onChange={(e) => setSaveAsDefault(e.target.checked)} />
+          Save these as my default payment methods
+        </label>
       </div>
+
+      <label className="block">
+        <span className="text-xs text-muted block mb-1">Trade description (optional)</span>
+        <textarea
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          maxLength={500}
+          rows={3}
+          placeholder="e.g. Payment terms, response time, notes for the other party…"
+          className="w-full bg-surfaceRaised rounded-md px-3 py-2 text-paper outline-none focus:ring-2 focus:ring-teal resize-none"
+        />
+      </label>
 
       {error && <p className="text-red-400 text-sm">{error}</p>}
 
