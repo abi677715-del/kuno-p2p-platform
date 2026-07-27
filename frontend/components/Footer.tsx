@@ -29,6 +29,8 @@ export default function Footer() {
   return (
     <footer className="bg-ink border-t border-white/10 mt-16">
       <div className="max-w-6xl mx-auto px-6 py-12 md:px-12">
+        <img src="/birrly-logo.png" alt="Birrly" className="h-7 w-auto mb-8" />
+
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-8 mb-10">
           {columns.map((col) => (
             <div key={col.title}>
