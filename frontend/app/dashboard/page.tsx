@@ -10,7 +10,7 @@ const links = [
   { href: '/wallet', label: 'Wallet', description: 'Deposit, withdraw, and view balances' },
   { href: '/notifications', label: 'Notifications', description: 'Updates on your trades and account' },
   { href: '/kyc', label: 'Verification', description: 'Complete KYC to unlock higher limits' },
-  { href: '/settings/2fa', label: 'Settings', description: 'Manage two-factor authentication' },
+  { href: '/profile', label: 'Profile & Settings', description: 'Edit your info, password, and security' },
   { href: '/support', label: 'Support', description: 'FAQs and help requests' },
 ];
 
@@ -75,11 +75,11 @@ export default function DashboardPage() {
         </div>
 
         {profile && (
-          <div className="mb-8 text-sm text-muted">
+          <a href="/profile" className="block mb-8 text-sm text-muted hover:text-paper transition-colors w-fit">
             <p className="text-paper font-medium">{profile.fullName || profile.email}</p>
             {profile.phone && <p>{profile.phone}</p>}
             <p>{profile.email}</p>
-          </div>
+          </a>
         )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
