@@ -21,13 +21,14 @@ export class UsersController {
       emailVerified: user?.emailVerified,
       twoFaEnabled: user?.twoFaEnabled,
       avatar: user?.avatar,
+      defaultPaymentMethods: user?.defaultPaymentMethods,
     };
   }
 
   @Patch('me')
   async updateProfile(@Req() req: any, @Body() dto: UpdateProfileDto) {
     const user = await this.usersService.updateProfile(req.user.userId, dto);
-    return { fullName: user.fullName, phone: user.phone };
+    return { fullName: user.fullName, phone: user.phone, defaultPaymentMethods: user.defaultPaymentMethods };
   }
 
   @Post('me/change-password')
