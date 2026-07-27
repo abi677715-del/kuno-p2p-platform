@@ -18,6 +18,7 @@ export default function MarketplacePage() {
   const [ads, setAds] = useState<Ad[]>([]);
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
+  const [tab, setTab] = useState<'BUY' | 'SELL'>('BUY');
 
   async function loadAds() {
     try {
@@ -32,10 +33,14 @@ export default function MarketplacePage() {
     loadAds();
   }, []);
 
+  // "Buy" tab shows sellers' offers (side SELL) — that's who you'd buy USDT from.
+  // "Sell" tab shows buyers' offers (side BUY) — that's who you'd sell USDT to.
+  const visibleAds = ads.filter((ad) => ad.side === (tab === 'BUY' ? 'SELL' : 'BUY'));
+
   return (
     <main className="min-h-screen bg-ink px-6 py-10 md:px-12">
       <div className="max-w-4xl mx-auto">
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-6">
           <h1 className="font-display font-bold text-2xl text-paper">Marketplace</h1>
           <button
             onClick={() => setShowForm((v) => !v)}
@@ -45,12 +50,31 @@ export default function MarketplacePage() {
           </button>
         </div>
 
+        <div className="flex gap-2 mb-6 bg-surface border border-white/10 rounded-lg p-1 w-fit">
+          <button
+            onClick={() => setTab('BUY')}
+            className={`px-5 py-2 rounded-md text-sm font-medium transition-colors ${
+              tab === 'BUY' ? 'bg-teal text-ink' : 'text-muted hover:text-paper'
+            }`}
+          >
+            Buy USDT
+          </button>
+          <button
+            onClick={() => setTab('SELL')}
+            className={`px-5 py-2 rounded-md text-sm font-medium transition-colors ${
+              tab === 'SELL' ? 'bg-gold text-ink' : 'text-muted hover:text-paper'
+            }`}
+          >
+            Sell USDT
+          </button>
+        </div>
+
         {showForm && <CreateAdForm onCreated={() => { setShowForm(false); loadAds(); }} />}
 
         {error && <p className="text-red-400 text-sm mb-4">{error}</p>}
 
         <div className="space-y-3">
-          {ads.map((ad) => (
+          {visibleAds.map((ad) => (
             <a
               key={ad.id}
               href={`/marketplace/${ad.id}`}
@@ -88,7 +112,11 @@ export default function MarketplacePage() {
               </div>
             </a>
           ))}
-          {ads.length === 0 && !error && <p className="text-muted text-sm">No active offers yet.</p>}
+          {visibleAds.length === 0 && !error && (
+            <p className="text-muted text-sm">
+              No {tab === 'BUY' ? 'sellers' : 'buyers'} right now — check back soon or post your own offer.
+            </p>
+          )}
         </div>
       </div>
     </main>
