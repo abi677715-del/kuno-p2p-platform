@@ -13,6 +13,11 @@ export class AdsController {
     return this.adsService.findActive(side);
   }
 
+  @Get('rate')
+  getRate() {
+    return this.adsService.getIndicativeRate();
+  }
+
   @Get(':id')
   getOne(@Param('id') id: string) {
     return this.adsService.findById(id);
