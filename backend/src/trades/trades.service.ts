@@ -22,7 +22,7 @@ export class TradesService {
 
   /**
    * Starts a trade against an ad. Whoever holds the USDT (the "seller" role)
-   * has it locked into escrow immediately вЂ” that's what makes the trade safe
+   * has it locked into escrow immediately — that's what makes the trade safe
    * to start before any fiat has moved.
    */
   async createTrade(takerId: string, dto: CreateTradeDto) {
@@ -64,10 +64,12 @@ export class TradesService {
       where: { id: trade.id },
       data: { status: TradeStatus.ESCROW_LOCKED },
     }).then(async (updated) => {
-      await this.notificationsService.create(buyerId, 'TRADE_ESCROW_LOCKED', {
-        tradeId: updated.id,
-        message: 'Escrow is locked вЂ” you can send payment now.',
-      });
+      await this.notificationsService.create(
+        buyerId,
+        'TRADE_ESCROW_LOCKED',
+        { tradeId: updated.id, message: 'Escrow is locked — you can send payment now.' },
+        { subject: 'Escrow locked — send payment now', message: 'Escrow is locked — you can send payment now.', tradeId: updated.id },
+      );
       return updated;
     });
   }
@@ -103,14 +105,17 @@ export class TradesService {
       throw new BadRequestException(`Cannot mark paid from status ${trade.status}`);
     }
     const updated = await this.prisma.trade.update({ where: { id: tradeId }, data: { status: TradeStatus.PAID } });
-    await this.notificationsService.create(trade.sellerId, 'TRADE_MARKED_PAID', {
-      tradeId,
-      message: 'The buyer marked this trade as paid вЂ” please confirm once you\u2019ve received it.',
-    });
+    const message = 'The buyer marked this trade as paid — please confirm once you\u2019ve received it.';
+    await this.notificationsService.create(
+      trade.sellerId,
+      'TRADE_MARKED_PAID',
+      { tradeId, message },
+      { subject: 'Buyer marked payment sent', message, tradeId },
+    );
     return updated;
   }
 
-  /** Seller confirms receipt of ETB вЂ” this releases escrowed USDT to the buyer. */
+  /** Seller confirms receipt of ETB — this releases escrowed USDT to the buyer. */
   async confirmPayment(userId: string, tradeId: string) {
     const trade = await this.findById(tradeId);
     if (trade.sellerId !== userId) throw new ForbiddenException('Only the seller can confirm payment');
@@ -131,10 +136,13 @@ export class TradesService {
     });
 
     const updated = await this.prisma.trade.update({ where: { id: tradeId }, data: { status: TradeStatus.COMPLETED } });
-    await this.notificationsService.create(trade.buyerId, 'TRADE_COMPLETED', {
-      tradeId,
-      message: `Trade complete вЂ” ${releaseResult.netAmount} USDT released to your wallet (${releaseResult.feeAmount} USDT platform fee).`,
-    });
+    const message = `Trade complete — ${releaseResult.netAmount} USDT released to your wallet (${releaseResult.feeAmount} USDT platform fee).`;
+    await this.notificationsService.create(
+      trade.buyerId,
+      'TRADE_COMPLETED',
+      { tradeId, message },
+      { subject: 'Trade complete', message, tradeId },
+    );
     return updated;
   }
 
@@ -143,7 +151,7 @@ export class TradesService {
     const trade = await this.findById(tradeId);
     this.assertParticipant(trade, userId);
     if (![TradeStatus.PENDING, TradeStatus.ESCROW_LOCKED].includes(trade.status as any)) {
-      throw new BadRequestException('Trade can no longer be cancelled вЂ” payment has already been marked');
+      throw new BadRequestException('Trade can no longer be cancelled — payment has already been marked');
     }
 
     if (trade.escrow) {
@@ -153,10 +161,13 @@ export class TradesService {
 
     const updated = await this.prisma.trade.update({ where: { id: tradeId }, data: { status: TradeStatus.CANCELLED } });
     const counterparty = userId === trade.buyerId ? trade.sellerId : trade.buyerId;
-    await this.notificationsService.create(counterparty, 'TRADE_CANCELLED', {
-      tradeId,
-      message: 'This trade was cancelled.',
-    });
+    const message = 'This trade was cancelled.';
+    await this.notificationsService.create(
+      counterparty,
+      'TRADE_CANCELLED',
+      { tradeId, message },
+      { subject: 'Trade cancelled', message, tradeId },
+    );
     return updated;
   }
 
@@ -172,7 +183,18 @@ export class TradesService {
       data: { tradeId, raisedById: userId, reason: dto.reason, status: DisputeStatus.OPEN },
     });
 
-    return this.prisma.trade.update({ where: { id: tradeId }, data: { status: TradeStatus.DISPUTED } });
+    const updated = await this.prisma.trade.update({ where: { id: tradeId }, data: { status: TradeStatus.DISPUTED } });
+
+    const counterparty = userId === trade.buyerId ? trade.sellerId : trade.buyerId;
+    const message = 'A dispute was opened on this trade — our support team will review the chat log and evidence.';
+    await this.notificationsService.create(
+      counterparty,
+      'DISPUTE_OPENED',
+      { tradeId, message },
+      { subject: 'Dispute opened on your trade', message, tradeId },
+    );
+
+    return updated;
   }
 
   async sendMessage(userId: string, tradeId: string, dto: SendMessageDto) {
@@ -245,12 +267,26 @@ export class TradesService {
     });
 
     await this.prisma.adminAuditLog.create({
-      data: { adminId, action: `DISPUTE_RESOLVED: ${dto.outcome} вЂ” ${dto.resolution}`, targetId: trade.id },
+      data: { adminId, action: `DISPUTE_RESOLVED: ${dto.outcome} — ${dto.resolution}`, targetId: trade.id },
     });
 
+    const resolutionMessage =
+      dto.outcome === DisputeOutcome.RELEASE_TO_BUYER
+        ? 'The dispute was resolved: escrow was released to the buyer.'
+        : 'The dispute was resolved: escrow was refunded to the seller.';
     await Promise.all([
-      this.notificationsService.create(trade.buyerId, 'DISPUTE_RESOLVED', { tradeId: trade.id, outcome: dto.outcome }),
-      this.notificationsService.create(trade.sellerId, 'DISPUTE_RESOLVED', { tradeId: trade.id, outcome: dto.outcome }),
+      this.notificationsService.create(
+        trade.buyerId,
+        'DISPUTE_RESOLVED',
+        { tradeId: trade.id, outcome: dto.outcome },
+        { subject: 'Dispute resolved', message: resolutionMessage, tradeId: trade.id },
+      ),
+      this.notificationsService.create(
+        trade.sellerId,
+        'DISPUTE_RESOLVED',
+        { tradeId: trade.id, outcome: dto.outcome },
+        { subject: 'Dispute resolved', message: resolutionMessage, tradeId: trade.id },
+      ),
     ]);
 
     return updatedDispute;
