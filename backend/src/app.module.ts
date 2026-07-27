@@ -8,6 +8,7 @@ import { TradesModule } from './trades/trades.module';
 import { KycModule } from './kyc/kyc.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { SupportModule } from './support/support.module';
+import { AuditModule } from './audit/audit.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { SupportModule } from './support/support.module';
     KycModule,
     NotificationsModule,
     SupportModule,
+    AuditModule,
   ],
 })
 export class AppModule {}
