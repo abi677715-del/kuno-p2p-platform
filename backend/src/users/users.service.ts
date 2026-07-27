@@ -77,8 +77,12 @@ export class UsersService {
     });
   }
 
-  updateProfile(userId: string, data: { fullName?: string; phone?: string }) {
+    updateProfile(userId: string, data: { fullName?: string; phone?: string }) {
     return this.prisma.user.update({ where: { id: userId }, data });
+  }
+
+  setAvatar(userId: string, avatar: string) {
+    return this.prisma.user.update({ where: { id: userId }, data: { avatar } });
   }
 
   async changePassword(userId: string, currentPassword: string, newPassword: string) {
