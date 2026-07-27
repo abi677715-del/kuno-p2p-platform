@@ -27,12 +27,16 @@ export class SupportService {
     });
   }
 
-  async resolve(id: string) {
+  async resolve(adminId: string, id: string) {
     const ticket = await this.prisma.supportTicket.findUnique({ where: { id } });
     if (!ticket) throw new NotFoundException('Ticket not found');
-    return this.prisma.supportTicket.update({
+    const updated = await this.prisma.supportTicket.update({
       where: { id },
       data: { status: SupportTicketStatus.RESOLVED },
     });
+    await this.prisma.adminAuditLog.create({
+      data: { adminId, action: 'SUPPORT_TICKET_RESOLVED', targetId: id },
+    });
+    return updated;
   }
 }
