@@ -10,6 +10,7 @@ process.on('unhandledRejection', (reason) => {
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
+import { json } from 'express';
 import { join } from 'path';
 import { AppModule } from './app.module';
 
@@ -17,6 +18,7 @@ async function bootstrap() {
   console.log('BOOT: creating app');
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   console.log('BOOT: app created');
+  app.use(json({ limit: '2mb' }));
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
   app.enableCors();
   app.useStaticAssets(join(__dirname, '..', 'uploads'), { prefix: '/uploads' });
