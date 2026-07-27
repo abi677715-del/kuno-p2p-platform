@@ -20,7 +20,6 @@ export default function LandingPage() {
       <HowItWorks />
       <Trust />
       <Cta />
-      <Footer />
     </main>
   );
 }
@@ -28,9 +27,9 @@ export default function LandingPage() {
 function Nav() {
   return (
     <header className="flex items-center justify-between px-6 py-5 md:px-12 max-w-6xl mx-auto">
-      <span className="font-display font-bold text-xl tracking-tight text-paper">
-        Birr<span className="text-gold">ly</span>
-      </span>
+      <a href="/" className="inline-flex items-center">
+        <img src="/birrly-logo.png" alt="Birrly" className="h-8 w-auto" />
+      </a>
       <div className="flex items-center gap-6 text-sm text-muted">
         <a href="#how" className="hover:text-paper transition-colors">
           How it works
@@ -193,14 +192,5 @@ function Cta() {
         Create free account
       </a>
     </section>
-  );
-}
-
-function Footer() {
-  return (
-    <footer className="px-6 md:px-12 py-10 max-w-6xl mx-auto border-t border-white/10 text-sm text-muted flex justify-between">
-      <span>Birrly</span>
-      <span>Not a bank. USDT and ETB trades happen directly between users.</span>
-    </footer>
   );
 }
