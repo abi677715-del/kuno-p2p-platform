@@ -20,7 +20,10 @@ async function bootstrap() {
   console.log('BOOT: app created');
   app.use(json({ limit: '2mb' }));
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
-  app.enableCors();
+  const allowedOrigins = [process.env.FRONTEND_URL, 'https://supportive-growth-production-b6d0.up.railway.app'].filter(
+    Boolean,
+  ) as string[];
+  app.enableCors({ origin: allowedOrigins, credentials: true });
   app.useStaticAssets(join(__dirname, '..', 'uploads'), { prefix: '/uploads' });
   const port = process.env.PORT ?? 4000;
   console.log('BOOT: about to listen on port', port);
