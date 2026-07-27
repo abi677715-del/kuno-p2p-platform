@@ -1,4 +1,4 @@
-import { IsEnum, IsNumberString, IsArray, ArrayNotEmpty, IsString } from 'class-validator';
+import { IsEnum, IsNumberString, IsArray, ArrayNotEmpty, IsString, IsOptional, MaxLength } from 'class-validator';
 import { AdSide } from '@prisma/client';
 
 export class CreateAdDto {
@@ -18,4 +18,9 @@ export class CreateAdDto {
   @ArrayNotEmpty()
   @IsString({ each: true })
   paymentMethods: string[];
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500, { message: 'Description must be 500 characters or fewer' })
+  description?: string;
 }
