@@ -26,6 +26,11 @@ export class UsersService {
     return this.prisma.user.findUnique({ where: { id } });
   }
 
+  /**
+   * Lets ops promote an account to ADMIN just by listing its email in the
+   * ADMIN_EMAILS env var, instead of hand-editing the database — applied
+   * on every login so it also catches accounts that already existed.
+   */
   async promoteIfBootstrapAdmin(user: User): Promise<User> {
     if (user.role === Role.ADMIN || !isBootstrapAdmin(user.email)) {
       return user;
@@ -47,6 +52,11 @@ export class UsersService {
     });
   }
 
+  /**
+   * Creates a user plus their USDT and ETB wallets in a single transaction,
+   * so a user can never exist without wallets to trade with. Also generates
+   * an emailVerificationToken so the caller can send a confirmation email.
+   */
   async createWithWallets(email: string, passwordHash: string, fullName: string, phone: string) {
     return this.prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
@@ -80,7 +90,7 @@ export class UsersService {
     });
   }
 
-  updateProfile(userId: string, data: { fullName?: string; phone?: string }) {
+  updateProfile(userId: string, data: { fullName?: string; phone?: string; defaultPaymentMethods?: string[] }) {
     return this.prisma.user.update({ where: { id: userId }, data });
   }
 
