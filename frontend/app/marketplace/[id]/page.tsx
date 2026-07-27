@@ -4,6 +4,13 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
 
+const ONLINE_WINDOW_MS = 5 * 60 * 1000;
+
+function isOnline(lastSeenAt?: string) {
+  if (!lastSeenAt) return false;
+  return Date.now() - new Date(lastSeenAt).getTime() < ONLINE_WINDOW_MS;
+}
+
 export default function AdDetailPage() {
   const params = useParams();
   const adId = params.id as string;
@@ -41,11 +48,16 @@ export default function AdDetailPage() {
         <span className={`text-xs font-mono uppercase ${ad.side === 'SELL' ? 'text-teal' : 'text-gold'}`}>
           {ad.side === 'SELL' ? 'Selling USDT' : 'Buying USDT'}
         </span>
-        <p className="text-paper font-medium mt-1">{ad.user.email}</p>
+        <div className="flex items-center gap-1.5 mt-1">
+          <span className={`inline-block h-1.5 w-1.5 rounded-full ${isOnline(ad.user.lastSeenAt) ? 'bg-teal' : 'bg-muted'}`} />
+          <p className="text-paper font-medium">{ad.user.email}</p>
+          <span className="text-[11px] text-muted">{isOnline(ad.user.lastSeenAt) ? 'Online' : 'Offline'}</span>
+        </div>
         <p className="font-mono text-2xl text-paper mt-3">{ad.priceEtb} ETB / USDT</p>
         <p className="text-xs text-muted mt-1">
           Limits {ad.minLimitEtb}–{ad.maxLimitEtb} ETB · {ad.paymentMethods.join(', ')}
         </p>
+        {ad.description && <p className="text-sm text-paper/80 mt-3 bg-surfaceRaised rounded-md p-3">{ad.description}</p>}
 
         <form onSubmit={startTrade} className="mt-6 space-y-4">
           <label className="block">
