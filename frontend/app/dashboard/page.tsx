@@ -20,6 +20,7 @@ const adminLinks = [
   { href: '/admin/wallet', label: 'Deposits & withdrawals', description: 'Confirm pending on-chain transactions' },
   { href: '/admin/revenue', label: 'Revenue', description: 'Platform commission collected' },
   { href: '/admin/support', label: 'Support tickets', description: 'Respond to user help requests' },
+  { href: '/admin/audit-log', label: 'Audit log', description: 'Record of sensitive admin actions' },
 ];
 
 function getRole(): string | null {
