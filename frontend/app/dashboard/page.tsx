@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+
 const links = [
   { href: '/marketplace', label: 'Marketplace', description: 'Browse and post buy/sell offers' },
   { href: '/trades', label: 'Trades', description: 'Track your active and past trades' },
@@ -30,17 +32,26 @@ function getRole(): string | null {
   }
 }
 
+type Profile = { fullName?: string; email?: string; phone?: string };
+
 export default function DashboardPage() {
   const [ready, setReady] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [profile, setProfile] = useState<Profile | null>(null);
 
   useEffect(() => {
-    if (!localStorage.getItem('accessToken')) {
+    const token = localStorage.getItem('accessToken');
+    if (!token) {
       window.location.href = '/login';
       return;
     }
     setIsAdmin(getRole() === 'ADMIN');
     setReady(true);
+
+    fetch(`${API_URL}/users/me`, { headers: { Authorization: `Bearer ${token}` } })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => data && setProfile(data))
+      .catch(() => {});
   }, []);
 
   if (!ready) return null;
@@ -53,7 +64,7 @@ export default function DashboardPage() {
   return (
     <main className="min-h-screen bg-ink px-6 py-10 md:px-12">
       <div className="max-w-4xl mx-auto">
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-2">
           <h1 className="font-display font-bold text-2xl text-paper">Dashboard</h1>
           <button
             onClick={logout}
@@ -62,6 +73,14 @@ export default function DashboardPage() {
             Log out
           </button>
         </div>
+
+        {profile && (
+          <div className="mb-8 text-sm text-muted">
+            <p className="text-paper font-medium">{profile.fullName || profile.email}</p>
+            {profile.phone && <p>{profile.phone}</p>}
+            <p>{profile.email}</p>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {links.map((link) => (
