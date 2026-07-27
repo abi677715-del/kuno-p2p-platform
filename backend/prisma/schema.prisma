@@ -86,7 +86,7 @@ enum SupportTicketStatus {
 }
 
 model User {
-   id                     String     @id @default(uuid())
+  id                     String     @id @default(uuid())
   fullName               String?
   avatar                 String?    @db.Text
   email                  String     @unique
@@ -99,6 +99,8 @@ model User {
   emailVerified          Boolean    @default(false)
   emailVerificationToken String?    @unique
   createdAt              DateTime   @default(now())
+  lastSeenAt             DateTime   @default(now())
+  defaultPaymentMethods  String[]   @default([])
 
   kycRecord        KycRecord?
   wallets          Wallet[]
@@ -177,6 +179,7 @@ model Ad {
   minLimitEtb    Decimal  @db.Decimal(20, 4)
   maxLimitEtb    Decimal  @db.Decimal(20, 4)
   paymentMethods String[]
+  description    String?  @db.Text
   status         AdStatus @default(ACTIVE)
   createdAt      DateTime @default(now())
 
