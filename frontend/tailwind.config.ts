@@ -4,14 +4,14 @@ const config: Config = {
   content: ['./app/**/*.{ts,tsx}'],
   theme: {
     extend: {
-      colors: {
-        ink: '#0F1420',
-        surface: '#171E2E',
-        surfaceRaised: '#1E2740',
-        gold: '#D4A73C',
-        teal: '#2FB8A6',
+          colors: {
+        ink: '#12161F',
+        surface: '#1B2226',
+        surfaceRaised: '#232C31',
+        gold: '#E8A33D',
+        teal: '#0B8457',
         paper: '#F2F1EC',
-        muted: '#8B93A7',
+        muted: '#8B9A93',
       },
       fontFamily: {
         display: ['var(--font-display)'],
