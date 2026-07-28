@@ -67,7 +67,12 @@ export default function LoginPage() {
               className="w-full bg-surfaceRaised rounded-md px-3 py-2 text-paper mb-4 outline-none focus:ring-2 focus:ring-teal"
             />
 
-            <label className="text-sm text-muted block mb-1">Password</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-sm text-muted">Password</label>
+              <a href="/forgot-password" className="text-xs text-teal">
+                Forgot password?
+              </a>
+            </div>
             <input
               type="password"
               required
