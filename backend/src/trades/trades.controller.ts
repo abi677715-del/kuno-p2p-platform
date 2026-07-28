@@ -7,6 +7,7 @@ import { TradesService } from './trades.service';
 import { CreateTradeDto } from './dto/create-trade.dto';
 import { DisputeTradeDto } from './dto/dispute-trade.dto';
 import { SendMessageDto } from './dto/send-message.dto';
+import { ConfirmPaymentDto } from './dto/confirm-payment.dto';
 import { ResolveDisputeDto } from './dto/resolve-dispute.dto';
 
 @Controller('trades')
@@ -35,8 +36,8 @@ export class TradesController {
   }
 
   @Post(':id/confirm')
-  confirm(@Req() req: any, @Param('id') id: string) {
-    return this.tradesService.confirmPayment(req.user.userId, id);
+  confirm(@Req() req: any, @Param('id') id: string, @Body() dto: ConfirmPaymentDto) {
+    return this.tradesService.confirmPayment(req.user.userId, id, dto);
   }
 
   @Post(':id/cancel')
