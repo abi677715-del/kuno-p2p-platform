@@ -25,9 +25,12 @@ export default function AdDetailPage() {
   const [amountUsdt, setAmountUsdt] = useState('50');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [relations, setRelations] = useState<any[]>([]);
+  const [relationBusy, setRelationBusy] = useState(false);
 
   useEffect(() => {
     apiFetch(`/ads/${adId}`).then(setAd).catch((e) => setError(e.message));
+    apiFetch('/relations/mine').then(setRelations).catch(() => {});
   }, [adId]);
 
   async function startTrade(e: React.FormEvent) {
@@ -47,20 +50,57 @@ export default function AdDetailPage() {
     }
   }
 
+  async function toggleRelation(type: 'block' | 'favorite') {
+    if (!ad) return;
+    setRelationBusy(true);
+    try {
+      const active = relations.some((r) => r.targetUser.id === ad.user.id && r.type === type.toUpperCase());
+      await apiFetch(`/relations/${ad.user.id}/${type}`, { method: active ? 'DELETE' : 'POST' });
+      setRelations(await apiFetch('/relations/mine'));
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setRelationBusy(false);
+    }
+  }
+
   if (!ad) return <main className="min-h-screen bg-ink px-6 py-10 text-muted">{error || 'Loading…'}</main>;
+
+  const isBlocked = relations.some((r) => r.targetUser.id === ad.user.id && r.type === 'BLOCK');
+  const isFavorited = relations.some((r) => r.targetUser.id === ad.user.id && r.type === 'FAVORITE');
 
   return (
     <main className="min-h-screen bg-ink px-6 py-10 md:px-12">
       <div className="max-w-md mx-auto bg-surface border border-white/10 rounded-xl p-6">
-        <span className={`text-xs font-mono uppercase ${ad.side === 'SELL' ? 'text-teal' : 'text-gold'}`}>
-          {ad.side === 'SELL' ? 'Selling USDT' : 'Buying USDT'}
-        </span>
+        <div className="flex items-center justify-between">
+          <span className={`text-xs font-mono uppercase ${ad.side === 'SELL' ? 'text-teal' : 'text-gold'}`}>
+            {ad.side === 'SELL' ? 'Selling USDT' : 'Buying USDT'}
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => toggleRelation('favorite')}
+              disabled={relationBusy}
+              className={`text-xs disabled:opacity-50 ${isFavorited ? 'text-gold' : 'text-muted hover:text-gold'}`}
+              title="Favorite this trader"
+            >
+              {isFavorited ? '★ Favorited' : '☆ Favorite'}
+            </button>
+            <button
+              onClick={() => toggleRelation('block')}
+              disabled={relationBusy}
+              className={`text-xs disabled:opacity-50 ${isBlocked ? 'text-red-400' : 'text-muted hover:text-red-400'}`}
+              title="Block this trader"
+            >
+              {isBlocked ? 'Unblock' : 'Block'}
+            </button>
+          </div>
+        </div>
         <div className="flex items-center gap-1.5 mt-1">
           <span className={`inline-block h-1.5 w-1.5 rounded-full ${isOnline(ad.user.lastSeenAt) ? 'bg-teal' : 'bg-muted'}`} />
           <p className="text-paper font-medium">{displayName(ad.user)}</p>
           <span className="text-[11px] text-muted">{isOnline(ad.user.lastSeenAt) ? 'Online' : 'Offline'}</span>
         </div>
-        <div className="flex items-center gap-1.5 mt-1">
+        <div className="flex items-center gap-1.5 mt-1 flex-wrap">
           {ad.user.isMerchant && (
             <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-teal/20 text-teal" title="Verified merchant — 1% trade fee">
               Merchant
@@ -76,8 +116,19 @@ export default function AdDetailPage() {
               {ad.user.completionRate}% · {ad.user.completedTrades} trades
             </span>
           )}
+          {ad.user.avgReleaseMinutes !== null && ad.user.avgReleaseMinutes !== undefined && (
+            <span className="text-[11px] text-muted">Avg release {ad.user.avgReleaseMinutes}m</span>
+          )}
         </div>
-        <p className="font-mono text-2xl text-paper mt-3">{ad.priceEtb} ETB / USDT</p>
+        <p className="font-mono text-2xl text-paper mt-3">
+          {ad.effectivePriceEtb ?? ad.priceEtb} ETB / USDT
+          {ad.pricingMode === 'FLOATING' && (
+            <span className="text-xs text-teal font-sans ml-2">
+              market {ad.marginPercent >= 0 ? '+' : ''}
+              {ad.marginPercent}%
+            </span>
+          )}
+        </p>
         <p className="text-xs text-muted mt-1">
           Limits {ad.minLimitEtb}–{ad.maxLimitEtb} ETB · {ad.paymentMethods.join(', ')}
         </p>
@@ -98,10 +149,10 @@ export default function AdDetailPage() {
           </p>
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || isBlocked}
             className="w-full rounded-md bg-gold py-2 text-ink font-medium hover:bg-gold/90 transition-colors disabled:opacity-60"
           >
-            {loading ? 'Starting trade…' : 'Start trade'}
+            {isBlocked ? 'You have blocked this trader' : loading ? 'Starting trade…' : 'Start trade'}
           </button>
         </form>
       </div>
