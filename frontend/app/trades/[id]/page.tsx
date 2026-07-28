@@ -52,7 +52,7 @@ export default function TradeRoomPage() {
     refreshTrade();
     const statusInterval = setInterval(refreshTrade, 5000);
 
-       const token = localStorage.getItem('accessToken');
+    const token = localStorage.getItem('accessToken');
     const socket = io(API_URL, { transports: ['websocket'], auth: { token } });
     socketRef.current = socket;
     socket.emit('joinTrade', tradeId);
@@ -93,7 +93,9 @@ export default function TradeRoomPage() {
   function sendMessage(e: React.FormEvent) {
     e.preventDefault();
     if (!text.trim() || !userId.current || !socketRef.current) return;
-       socketRef.current.emit('sendMessage', { tradeId, message: text });
+    socketRef.current.emit('sendMessage', { tradeId, message: text });
+    setText('');
+  }
 
   if (!trade) return <main className="min-h-screen bg-ink px-6 py-10 text-muted">{error || 'Loading…'}</main>;
 
