@@ -91,6 +91,8 @@ export default function TradeRoomPage() {
   const [attachError, setAttachError] = useState('');
   const [twoFaEnabled, setTwoFaEnabled] = useState(false);
   const [confirmCode, setConfirmCode] = useState('');
+  const [relations, setRelations] = useState<any[]>([]);
+  const [relationBusy, setRelationBusy] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const socketRef = useRef<Socket | null>(null);
   const userId = useRef<string | null>(null);
@@ -113,6 +115,7 @@ export default function TradeRoomPage() {
     apiFetch('/users/me')
       .then((data) => setTwoFaEnabled(!!data.twoFaEnabled))
       .catch(() => {});
+    apiFetch('/relations/mine').then(setRelations).catch(() => {});
     refreshTrade();
     const statusInterval = setInterval(refreshTrade, 5000);
 
@@ -132,7 +135,24 @@ export default function TradeRoomPage() {
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (messages.length > 0) {
+      apiFetch(`/trades/${tradeId}/read`, { method: 'POST' }).catch(() => {});
+    }
   }, [messages.length]);
+
+  async function toggleRelation(type: 'block' | 'favorite') {
+    const counterpartyId = trade.buyerId === userId.current ? trade.sellerId : trade.buyerId;
+    setRelationBusy(true);
+    try {
+      const active = relations.some((r) => r.targetUser.id === counterpartyId && r.type === type.toUpperCase());
+      await apiFetch(`/relations/${counterpartyId}/${type}`, { method: active ? 'DELETE' : 'POST' });
+      setRelations(await apiFetch('/relations/mine'));
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setRelationBusy(false);
+    }
+  }
 
   async function act(action: 'paid' | 'confirm' | 'cancel', body?: Record<string, unknown>) {
     try {
@@ -178,6 +198,11 @@ export default function TradeRoomPage() {
   if (!trade) return <main className="min-h-screen bg-ink px-6 py-10 text-muted">{error || 'Loading…'}</main>;
 
   const feePercent = trade.feePercent ?? 2;
+  const counterpartyId = trade.buyerId === userId.current ? trade.sellerId : trade.buyerId;
+  const counterpartyLastReadAt = trade.buyerId === userId.current ? trade.sellerLastReadAt : trade.buyerLastReadAt;
+  const isBlocked = relations.some((r) => r.targetUser.id === counterpartyId && r.type === 'BLOCK');
+  const isFavorited = relations.some((r) => r.targetUser.id === counterpartyId && r.type === 'FAVORITE');
+  const lastOwnMessageId = [...messages].reverse().find((m) => m.senderId === userId.current)?.id;
 
   return (
     <main className="min-h-screen bg-ink px-6 py-10 md:px-12">
@@ -192,9 +217,25 @@ export default function TradeRoomPage() {
         <div className="bg-surface border border-white/10 rounded-xl p-5 mb-6">
           <div className="flex items-center justify-between mb-2">
             <span className="font-mono text-xs text-teal uppercase">{trade.status}</span>
-            <span className="font-mono text-paper">
-              {trade.amountUsdt} USDT ≈ {trade.amountEtb} ETB
-            </span>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => toggleRelation('favorite')}
+                disabled={relationBusy}
+                className={`text-xs disabled:opacity-50 ${isFavorited ? 'text-gold' : 'text-muted hover:text-gold'}`}
+              >
+                {isFavorited ? '★ Favorited' : '☆ Favorite'}
+              </button>
+              <button
+                onClick={() => toggleRelation('block')}
+                disabled={relationBusy}
+                className={`text-xs disabled:opacity-50 ${isBlocked ? 'text-red-400' : 'text-muted hover:text-red-400'}`}
+              >
+                {isBlocked ? 'Unblock' : 'Block'}
+              </button>
+              <span className="font-mono text-paper">
+                {trade.amountUsdt} USDT ≈ {trade.amountEtb} ETB
+              </span>
+            </div>
           </div>
           <p className="text-sm text-muted mb-1">{STATUS_COPY[trade.status] ?? ''}</p>
           <TradeCountdown trade={trade} />
@@ -268,6 +309,11 @@ export default function TradeRoomPage() {
                     />
                   </a>
                 )}
+                {m.id === lastOwnMessageId &&
+                  counterpartyLastReadAt &&
+                  new Date(m.createdAt) <= new Date(counterpartyLastReadAt) && (
+                    <p className="text-[10px] text-muted mt-0.5">Seen</p>
+                  )}
               </div>
             ))}
             <div ref={bottomRef} />
