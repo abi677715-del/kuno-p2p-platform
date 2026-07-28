@@ -12,6 +12,12 @@ function isOnline(lastSeenAt?: string) {
   return Date.now() - new Date(lastSeenAt).getTime() < ONLINE_WINDOW_MS;
 }
 
+const TIER_COLOR: Record<string, string> = {
+  'Top Merchant': 'bg-gold/20 text-gold',
+  Verified: 'bg-teal/20 text-teal',
+  Trader: 'bg-white/10 text-muted',
+};
+
 export default function AdDetailPage() {
   const params = useParams();
   const adId = params.id as string;
@@ -53,6 +59,18 @@ export default function AdDetailPage() {
           <span className={`inline-block h-1.5 w-1.5 rounded-full ${isOnline(ad.user.lastSeenAt) ? 'bg-teal' : 'bg-muted'}`} />
           <p className="text-paper font-medium">{displayName(ad.user)}</p>
           <span className="text-[11px] text-muted">{isOnline(ad.user.lastSeenAt) ? 'Online' : 'Offline'}</span>
+        </div>
+        <div className="flex items-center gap-1.5 mt-1">
+          {ad.user.tier && (
+            <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${TIER_COLOR[ad.user.tier] ?? 'bg-white/10 text-muted'}`}>
+              {ad.user.tier}
+            </span>
+          )}
+          {ad.user.completionRate !== null && ad.user.completionRate !== undefined && (
+            <span className="text-[11px] text-muted">
+              {ad.user.completionRate}% · {ad.user.completedTrades} trades
+            </span>
+          )}
         </div>
         <p className="font-mono text-2xl text-paper mt-3">{ad.priceEtb} ETB / USDT</p>
         <p className="text-xs text-muted mt-1">
