@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
 import { displayName } from '@/lib/displayName';
+import { formatAmount } from '@/lib/format';
 
 const ONLINE_WINDOW_MS = 5 * 60 * 1000;
 
@@ -121,7 +122,7 @@ export default function AdDetailPage() {
           )}
         </div>
         <p className="font-mono text-2xl text-paper mt-3">
-          {ad.effectivePriceEtb ?? ad.priceEtb} ETB / USDT
+          {formatAmount(ad.effectivePriceEtb ?? ad.priceEtb)} ETB / USDT
           {ad.pricingMode === 'FLOATING' && (
             <span className="text-xs text-teal font-sans ml-2">
               market {ad.marginPercent >= 0 ? '+' : ''}
@@ -130,7 +131,7 @@ export default function AdDetailPage() {
           )}
         </p>
         <p className="text-xs text-muted mt-1">
-          Limits {ad.minLimitEtb}–{ad.maxLimitEtb} ETB · {ad.paymentMethods.join(', ')}
+          Limits {formatAmount(ad.minLimitEtb)}–{formatAmount(ad.maxLimitEtb)} ETB · {ad.paymentMethods.join(', ')}
         </p>
         {ad.description && <p className="text-sm text-paper/80 mt-3 bg-surfaceRaised rounded-md p-3">{ad.description}</p>}
 
