@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { io, Socket } from 'socket.io-client';
 import { apiFetch, API_URL } from '@/lib/api';
+import { formatAmount } from '@/lib/format';
 
 const STATUS_COPY: Record<string, string> = {
   PENDING: 'Waiting for escrow to lock',
@@ -233,7 +234,7 @@ export default function TradeRoomPage() {
                 {isBlocked ? 'Unblock' : 'Block'}
               </button>
               <span className="font-mono text-paper">
-                {trade.amountUsdt} USDT ≈ {trade.amountEtb} ETB
+                {formatAmount(trade.amountUsdt, 4)} USDT ≈ {formatAmount(trade.amountEtb)} ETB
               </span>
             </div>
           </div>
@@ -241,7 +242,7 @@ export default function TradeRoomPage() {
           <TradeCountdown trade={trade} />
           <p className="text-xs text-muted mb-4">
             A {feePercent}% platform fee applies on completion — the buyer receives ≈{' '}
-            {(parseFloat(trade.amountUsdt) * (1 - feePercent / 100)).toFixed(2)} USDT after the fee.
+            {formatAmount(parseFloat(trade.amountUsdt) * (1 - feePercent / 100), 4)} USDT after the fee.
           </p>
 
           <div className="flex gap-3 flex-wrap">
