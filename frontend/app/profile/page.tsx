@@ -20,6 +20,7 @@ export default function ProfilePage() {
   const [phone, setPhone] = useState('');
   const [profileError, setProfileError] = useState('');
   const [profileSaved, setProfileSaved] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -128,6 +129,34 @@ export default function ProfilePage() {
           </form>
         </div>
 
+        {profile.bid && (
+          <div className="bg-surface border border-white/10 rounded-xl p-6 space-y-3">
+            <h2 className="font-display font-medium text-paper">Invite friends</h2>
+            <p className="text-sm text-muted">
+              Share your link — when someone signs up through it, you earn a share of the platform fee on their trades.
+            </p>
+            <div className="flex items-center gap-2">
+              <input
+                readOnly
+                value={typeof window !== 'undefined' ? `${window.location.origin}/signup?ref=${profile.bid}` : ''}
+                className="flex-1 bg-surfaceRaised rounded-md px-3 py-2 text-paper text-sm font-mono outline-none"
+                onFocus={(e) => e.target.select()}
+              />
+              <button
+                type="button"
+                onClick={async () => {
+                  await navigator.clipboard.writeText(`${window.location.origin}/signup?ref=${profile.bid}`);
+                  setLinkCopied(true);
+                  setTimeout(() => setLinkCopied(false), 2000);
+                }}
+                className="rounded-md bg-gold px-3 py-2 text-ink text-sm font-medium shrink-0"
+              >
+                {linkCopied ? 'Copied!' : 'Copy'}
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="bg-surface border border-white/10 rounded-xl p-6 space-y-3">
           <h2 className="font-display font-medium text-paper">Security & verification</h2>
           <a href="/settings/2fa" className="block text-sm text-teal hover:underline">
@@ -135,6 +164,9 @@ export default function ProfilePage() {
           </a>
           <a href="/kyc" className="block text-sm text-teal hover:underline">
             Identity verification (KYC) →
+          </a>
+          <a href="/settings/relations" className="block text-sm text-teal hover:underline">
+            Blocked & favorite traders →
           </a>
         </div>
       </div>
