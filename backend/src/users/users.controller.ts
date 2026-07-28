@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../common/roles.guard';
 import { Roles } from '../common/roles.decorator';
@@ -7,6 +7,7 @@ import { UsersService } from './users.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { UpdateAvatarDto } from './dto/update-avatar.dto';
+import { UpdateMerchantDto } from './dto/update-merchant.dto';
 import { formatBid } from '../common/bid';
 
 @Controller('users')
@@ -27,6 +28,7 @@ export class UsersController {
       avatar: user?.avatar,
       defaultPaymentMethods: user?.defaultPaymentMethods,
       bid: user ? formatBid(user.bidNumber) : null,
+      isMerchant: user?.isMerchant,
     };
   }
 
@@ -36,6 +38,13 @@ export class UsersController {
   async listAll() {
     const users = await this.usersService.listAllForAdmin();
     return users.map((u) => ({ ...u, bid: formatBid(u.bidNumber) }));
+  }
+
+  @Patch('admin/:id/merchant')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
+  setMerchantStatus(@Param('id') id: string, @Body() dto: UpdateMerchantDto) {
+    return this.usersService.setMerchantStatus(id, dto.isMerchant);
   }
 
   @Patch('me')
