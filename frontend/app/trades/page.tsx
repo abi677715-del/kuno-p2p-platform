@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/api';
+import { displayName } from '@/lib/displayName';
 
 const STATUS_COLOR: Record<string, string> = {
   PENDING: 'text-muted',
@@ -44,7 +45,7 @@ export default function TradesListPage() {
                 </span>
               </div>
               <p className="text-xs text-muted">
-                {t.buyer.email} (buyer) ↔ {t.seller.email} (seller)
+                {displayName(t.buyer)} (buyer) ↔ {displayName(t.seller)} (seller)
               </p>
             </a>
           ))}
