@@ -105,6 +105,25 @@ export class TradesService {
     return trade;
   }
 
+  /** Trade lookup for display — also includes the fee percent that'll apply on release. */
+  async getOne(id: string) {
+    const trade = await this.findById(id);
+    const feePercent = await this.resolveFeePercent(trade);
+    return { ...trade, feePercent };
+  }
+
+  /**
+   * The ad's poster is the "merchant" side of the trade — if an admin has
+   * flagged them as a merchant, the whole trade gets the discounted fee.
+   */
+  private async resolveFeePercent(trade: { ad: { userId: string } }): Promise<number> {
+    const maker = await this.prisma.user.findUnique({
+      where: { id: trade.ad.userId },
+      select: { isMerchant: true },
+    });
+    return this.walletService.getFeePercent(!!maker?.isMerchant);
+  }
+
   private assertParticipant(trade: { buyerId: string; sellerId: string }, userId: string) {
     if (trade.buyerId !== userId && trade.sellerId !== userId) {
       throw new ForbiddenException('You are not part of this trade');
@@ -152,12 +171,14 @@ export class TradesService {
       }
     }
 
+    const feePercent = await this.resolveFeePercent(trade);
     const releaseResult = await this.walletService.releaseFunds(
       trade.sellerId,
       trade.buyerId,
       Currency.USDT,
       trade.amountUsdt.toString(),
       trade.id,
+      feePercent,
     );
     await this.prisma.escrow.update({
       where: { tradeId },
@@ -334,19 +355,24 @@ export class TradesService {
    * happen) or refund it to the seller (it didn't).
    */
   async resolveDispute(adminId: string, disputeId: string, dto: ResolveDisputeDto) {
-    const dispute = await this.prisma.dispute.findUnique({ where: { id: disputeId }, include: { trade: true } });
+    const dispute = await this.prisma.dispute.findUnique({
+      where: { id: disputeId },
+      include: { trade: { include: { ad: true } } },
+    });
     if (!dispute) throw new NotFoundException('Dispute not found');
     if (dispute.status !== DisputeStatus.OPEN) throw new BadRequestException('Dispute already resolved');
 
     const { trade } = dispute;
 
     if (dto.outcome === DisputeOutcome.RELEASE_TO_BUYER) {
+      const feePercent = await this.resolveFeePercent(trade);
       await this.walletService.releaseFunds(
         trade.sellerId,
         trade.buyerId,
         Currency.USDT,
         trade.amountUsdt.toString(),
         trade.id,
+        feePercent,
       );
       await this.prisma.escrow.update({ where: { tradeId: trade.id }, data: { status: EscrowStatus.RELEASED, releasedAt: new Date() } });
       await this.prisma.trade.update({ where: { id: trade.id }, data: { status: TradeStatus.COMPLETED } });
