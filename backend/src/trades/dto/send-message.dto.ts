@@ -1,11 +1,12 @@
-import { IsOptional, IsString, MinLength } from 'class-validator';
+import { IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class SendMessageDto {
+  @IsOptional()
   @IsString()
-  @MinLength(1)
-  message: string;
+  message?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(700_000, { message: 'Attachment is too large' })
   attachmentUrl?: string;
 }
