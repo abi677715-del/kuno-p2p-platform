@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/api';
+import { formatAmount } from '@/lib/format';
 
 type Ad = {
   id: string;
@@ -69,9 +70,9 @@ export default function MyAdsPage() {
                     {ad.status}
                   </span>
                 </div>
-                <p className="font-mono text-paper">{ad.priceEtb} ETB / USDT</p>
+                <p className="font-mono text-paper">{formatAmount(ad.priceEtb)} ETB / USDT</p>
                 <p className="text-xs text-muted mt-1">
-                  Limits {ad.minLimitEtb}–{ad.maxLimitEtb} ETB · {ad.paymentMethods.join(', ')}
+                  Limits {formatAmount(ad.minLimitEtb)}–{formatAmount(ad.maxLimitEtb)} ETB · {ad.paymentMethods.join(', ')}
                 </p>
               </div>
               <button
@@ -79,7 +80,7 @@ export default function MyAdsPage() {
                 className={`shrink-0 rounded-md px-3 py-1.5 text-sm font-medium ${
                   ad.status === 'ACTIVE'
                     ? 'border border-white/15 text-paper'
-                    : 'bg-teal text-ink'
+                    : 'bg-gradient-to-br from-gold to-teal text-ink'
                 }`}
               >
                 {ad.status === 'ACTIVE' ? 'Pause' : 'Reactivate'}
