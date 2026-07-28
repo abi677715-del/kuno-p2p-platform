@@ -19,6 +19,7 @@ type Ad = {
     completedTrades?: number;
     completionRate?: number | null;
     tier?: string | null;
+    isMerchant?: boolean;
   };
 };
 
@@ -48,6 +49,11 @@ const TIER_COLOR: Record<string, string> = {
 function MerchantBadges({ user }: { user: Ad['user'] }) {
   return (
     <span className="flex items-center gap-1.5">
+      {user.isMerchant && (
+        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-teal/20 text-teal" title="Verified merchant — 1% trade fee">
+          Merchant
+        </span>
+      )}
       {user.tier && (
         <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${TIER_COLOR[user.tier] ?? 'bg-white/10 text-muted'}`}>
           {user.tier}
