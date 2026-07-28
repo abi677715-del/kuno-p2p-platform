@@ -122,4 +122,24 @@ export class UsersService {
     await this.prisma.user.update({ where: { id: userId }, data: { passwordHash } });
     return { changed: true };
   }
+
+  setPasswordResetToken(userId: string, token: string, expires: Date) {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { passwordResetToken: token, passwordResetExpires: expires },
+    });
+  }
+
+  findByPasswordResetToken(token: string) {
+    return this.prisma.user.findUnique({ where: { passwordResetToken: token } });
+  }
+
+  async resetPassword(userId: string, newPassword: string) {
+    const passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash, passwordResetToken: null, passwordResetExpires: null },
+    });
+    return { changed: true };
+  }
 }
