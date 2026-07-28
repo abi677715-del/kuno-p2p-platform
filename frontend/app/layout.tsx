@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import './globals.css';
@@ -7,12 +7,15 @@ export const metadata: Metadata = {
   title: 'Birrly — Trade USDT for Birr, peer to peer',
   description: 'A peer-to-peer marketplace to exchange USDT and Ethiopian Birr, with escrow-protected trades.',
   manifest: '/manifest.json',
-  themeColor: '#0F1420',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
     title: 'Birrly',
   },
+};
+
+export const viewport: Viewport = {
+  themeColor: '#0F1420',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
