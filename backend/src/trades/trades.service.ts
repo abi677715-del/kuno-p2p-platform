@@ -42,6 +42,15 @@ export class TradesService {
     const amountUsdt = dto.amountUsdt;
     const amountEtb = (parseFloat(amountUsdt) * parseFloat(ad.priceEtb.toString())).toFixed(4);
 
+    const amountEtbNum = parseFloat(amountEtb);
+    const minLimit = parseFloat(ad.minLimitEtb.toString());
+    const maxLimit = parseFloat(ad.maxLimitEtb.toString());
+    if (amountEtbNum < minLimit || amountEtbNum > maxLimit) {
+      throw new BadRequestException(
+        `This ad only accepts trades between ${minLimit} and ${maxLimit} ETB — your amount comes to ${amountEtbNum} ETB.`,
+      );
+    }
+
     const trade = await this.prisma.trade.create({
       data: {
         adId: ad.id,
