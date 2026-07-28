@@ -39,7 +39,8 @@ export class AuthService {
     }
 
     const passwordHash = await bcrypt.hash(dto.password, SALT_ROUNDS);
-    const user = await this.usersService.createWithWallets(dto.email, passwordHash, dto.fullName, dto.phone);
+    const referredById = dto.ref ? await this.usersService.resolveReferrer(dto.ref) : undefined;
+    const user = await this.usersService.createWithWallets(dto.email, passwordHash, dto.fullName, dto.phone, referredById);
 
     if (user.emailVerificationToken) {
       await this.mailService.sendVerificationEmail(user.email, user.emailVerificationToken);
