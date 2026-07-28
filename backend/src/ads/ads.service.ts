@@ -1,6 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
-import { AdSide, AdStatus, Currency, TradeStatus } from '@prisma/client';
+import { AdSide, AdStatus, AdPricingMode, Currency, TradeStatus } from '@prisma/client';
 import { CreateAdDto } from './dto/create-ad.dto';
 import { KycService } from '../kyc/kyc.service';
 
@@ -37,6 +37,11 @@ export class AdsService {
   async create(userId: string, dto: CreateAdDto) {
     await this.kycService.assertApproved(userId);
 
+    const pricingMode = dto.pricingMode ?? AdPricingMode.FIXED;
+    if (pricingMode === AdPricingMode.FLOATING && dto.marginPercent === undefined) {
+      throw new BadRequestException('Floating-price ads need a margin percentage');
+    }
+
     if (dto.side === AdSide.SELL) {
       await this.assertSellAdFunded(userId, dto.priceEtb, dto.maxLimitEtb);
     }
@@ -50,14 +55,21 @@ export class AdsService {
         maxLimitEtb: dto.maxLimitEtb,
         paymentMethods: dto.paymentMethods,
         description: dto.description,
+        pricingMode,
+        marginPercent: dto.marginPercent,
       },
     });
   }
 
-  /** Median price across active ads — a live, manipulation-resistant stand-in for a market rate. */
+  /**
+   * Median price across active fixed-price ads — a live, manipulation-resistant
+   * stand-in for a market rate. Floating ads are excluded because they derive
+   * their own price FROM this rate, so including them would make it chase
+   * itself in a feedback loop.
+   */
   async getIndicativeRate() {
     const ads = await this.prisma.ad.findMany({
-      where: { status: AdStatus.ACTIVE },
+      where: { status: AdStatus.ACTIVE, pricingMode: AdPricingMode.FIXED },
       select: { priceEtb: true },
     });
     if (ads.length === 0) {
@@ -69,14 +81,39 @@ export class AdsService {
     return { rate: Math.round(median * 100) / 100, sampleSize: prices.length };
   }
 
-  /** Trade count + completion rate for the ad's poster, computed across both their buy and sell trades. */
+  private async medianFixedPrice(): Promise<number> {
+    return (await this.getIndicativeRate()).rate;
+  }
+
+  /** Computes the live price for floating ads (market rate ± margin); fixed ads just use their stored price. */
+  private async attachEffectivePrice<T extends { pricingMode: AdPricingMode; priceEtb: any; marginPercent: any }>(
+    ads: T[],
+  ): Promise<(T & { effectivePriceEtb: string })[]> {
+    const hasFloating = ads.some((a) => a.pricingMode === AdPricingMode.FLOATING);
+    const rate = hasFloating ? await this.medianFixedPrice() : 0;
+    return ads.map((ad) => ({
+      ...ad,
+      effectivePriceEtb:
+        ad.pricingMode === AdPricingMode.FLOATING && ad.marginPercent !== null
+          ? (rate * (1 + parseFloat(ad.marginPercent.toString()) / 100)).toFixed(4)
+          : ad.priceEtb.toString(),
+    }));
+  }
+
+  /**
+   * Trade count, completion rate, and average release time (as seller) for
+   * the ad's poster, computed across their trade history.
+   */
   private async attachMerchantStats<T extends { user: { id: string } }>(ads: T[]): Promise<T[]> {
     const userIds = [...new Set(ads.map((a) => a.user.id))];
-    const statsByUser = new Map<string, { completedTrades: number; completionRate: number | null; tier: string | null }>();
+    const statsByUser = new Map<
+      string,
+      { completedTrades: number; completionRate: number | null; tier: string | null; avgReleaseMinutes: number | null }
+    >();
 
     await Promise.all(
       userIds.map(async (userId) => {
-        const [completed, finished] = await Promise.all([
+        const [completed, finished, releasedAsSeller] = await Promise.all([
           this.prisma.trade.count({ where: { OR: [{ buyerId: userId }, { sellerId: userId }], status: TradeStatus.COMPLETED } }),
           this.prisma.trade.count({
             where: {
@@ -84,11 +121,25 @@ export class AdsService {
               status: { in: [TradeStatus.COMPLETED, TradeStatus.CANCELLED, TradeStatus.DISPUTED] },
             },
           }),
+          this.prisma.trade.findMany({
+            where: { sellerId: userId, status: TradeStatus.COMPLETED, paidAt: { not: null }, completedAt: { not: null } },
+            select: { paidAt: true, completedAt: true },
+            take: 50,
+            orderBy: { completedAt: 'desc' },
+          }),
         ]);
+        const avgReleaseMinutes = releasedAsSeller.length
+          ? Math.round(
+              releasedAsSeller.reduce((sum, t) => sum + (t.completedAt!.getTime() - t.paidAt!.getTime()), 0) /
+                releasedAsSeller.length /
+                60_000,
+            )
+          : null;
         statsByUser.set(userId, {
           completedTrades: completed,
           completionRate: finished > 0 ? Math.round((completed / finished) * 100) : null,
           tier: tierFor(completed),
+          avgReleaseMinutes,
         });
       }),
     );
@@ -104,7 +155,8 @@ export class AdsService {
       },
       orderBy: { createdAt: 'desc' },
     });
-    return this.attachMerchantStats(ads);
+    const withStats = await this.attachMerchantStats(ads);
+    return this.attachEffectivePrice(withStats);
   }
 
   async findById(id: string) {
@@ -114,7 +166,8 @@ export class AdsService {
     });
     if (!ad) throw new NotFoundException('Ad not found');
     const [withStats] = await this.attachMerchantStats([ad]);
-    return withStats;
+    const [withPrice] = await this.attachEffectivePrice([withStats]);
+    return withPrice;
   }
 
   findMine(userId: string) {
@@ -134,5 +187,20 @@ export class AdsService {
       await this.assertSellAdFunded(userId, ad.priceEtb.toString(), ad.maxLimitEtb.toString());
     }
     return this.prisma.ad.update({ where: { id }, data: { status: AdStatus.ACTIVE } });
+  }
+
+  /**
+   * Ads left ACTIVE while their poster has been offline too long are a
+   * common source of stuck trades — a buyer starts a trade against them and
+   * the seller never shows up to confirm. Auto-pause instead; the poster can
+   * manually reactivate (which re-checks funding) once they're back.
+   */
+  async autoPauseStaleAds(offlineMinutes: number) {
+    const cutoff = new Date(Date.now() - offlineMinutes * 60_000);
+    const result = await this.prisma.ad.updateMany({
+      where: { status: AdStatus.ACTIVE, user: { lastSeenAt: { lt: cutoff } } },
+      data: { status: AdStatus.PAUSED },
+    });
+    return result.count;
   }
 }
