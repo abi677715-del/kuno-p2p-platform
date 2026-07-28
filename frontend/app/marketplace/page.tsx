@@ -4,6 +4,11 @@ import { useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/api';
 import { PAYMENT_METHODS, colorFor, initialsFor } from '@/lib/paymentMethods';
 import { displayName } from '@/lib/displayName';
+import { formatAmount } from '@/lib/format';
+
+// The logo's diagonal gold-to-teal gradient, reused as the "active" look for
+// every toggle/tab control so selection state reads as on-brand, not generic.
+const TOGGLE_ACTIVE = 'bg-gradient-to-br from-gold to-teal text-ink';
 
 type Ad = {
   id: string;
@@ -150,7 +155,7 @@ export default function MarketplacePage() {
           <button
             onClick={() => setTab('BUY')}
             className={`px-5 py-2 rounded-md text-sm font-medium transition-colors ${
-              tab === 'BUY' ? 'bg-teal text-ink' : 'text-muted hover:text-paper'
+              tab === 'BUY' ? TOGGLE_ACTIVE : 'text-muted hover:text-paper'
             }`}
           >
             Buy USDT
@@ -158,7 +163,7 @@ export default function MarketplacePage() {
           <button
             onClick={() => setTab('SELL')}
             className={`px-5 py-2 rounded-md text-sm font-medium transition-colors ${
-              tab === 'SELL' ? 'bg-gold text-ink' : 'text-muted hover:text-paper'
+              tab === 'SELL' ? TOGGLE_ACTIVE : 'text-muted hover:text-paper'
             }`}
           >
             Sell USDT
@@ -175,7 +180,7 @@ export default function MarketplacePage() {
                 key={method.label}
                 onClick={() => toggleMethodFilter(method.label)}
                 className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium border transition-colors ${
-                  active ? 'border-teal bg-teal/10 text-teal' : 'border-white/10 text-muted hover:border-white/25'
+                  active ? `border-transparent ${TOGGLE_ACTIVE}` : 'border-white/10 text-muted hover:border-white/25'
                 }`}
               >
                 <span
@@ -242,7 +247,7 @@ export default function MarketplacePage() {
                   {ad.description && <p className="text-xs text-muted mt-1.5 max-w-sm">{ad.description}</p>}
                 </div>
                 <div className="text-right">
-                  <p className="font-mono text-lg text-paper">{ad.effectivePriceEtb ?? ad.priceEtb} ETB</p>
+                  <p className="font-mono text-lg text-paper">{formatAmount(ad.effectivePriceEtb ?? ad.priceEtb)} ETB</p>
                   {ad.pricingMode === 'FLOATING' && (
                     <p className="text-[10px] text-teal">
                       market {Number(ad.marginPercent) >= 0 ? '+' : ''}
@@ -250,7 +255,7 @@ export default function MarketplacePage() {
                     </p>
                   )}
                   <p className="text-xs text-muted">
-                    Limits {ad.minLimitEtb}–{ad.maxLimitEtb} ETB
+                    Limits {formatAmount(ad.minLimitEtb)}–{formatAmount(ad.maxLimitEtb)} ETB
                   </p>
                 </div>
               </div>
@@ -278,7 +283,7 @@ export default function MarketplacePage() {
                       {t.status}
                     </span>
                     <span className="font-mono text-sm text-paper">
-                      {t.amountUsdt} USDT ≈ {t.amountEtb} ETB
+                      {formatAmount(t.amountUsdt, 4)} USDT ≈ {formatAmount(t.amountEtb)} ETB
                     </span>
                   </div>
                   <p className="text-xs text-muted mt-1">
@@ -363,14 +368,14 @@ function CreateAdForm({ onCreated }: { onCreated: () => void }) {
         <button
           type="button"
           onClick={() => setSide('SELL')}
-          className={`flex-1 rounded-md py-2 text-sm font-medium ${side === 'SELL' ? 'bg-teal text-ink' : 'bg-surfaceRaised text-muted'}`}
+          className={`flex-1 rounded-md py-2 text-sm font-medium ${side === 'SELL' ? TOGGLE_ACTIVE : 'bg-surfaceRaised text-muted'}`}
         >
           I'm selling USDT
         </button>
         <button
           type="button"
           onClick={() => setSide('BUY')}
-          className={`flex-1 rounded-md py-2 text-sm font-medium ${side === 'BUY' ? 'bg-gold text-ink' : 'bg-surfaceRaised text-muted'}`}
+          className={`flex-1 rounded-md py-2 text-sm font-medium ${side === 'BUY' ? TOGGLE_ACTIVE : 'bg-surfaceRaised text-muted'}`}
         >
           I'm buying USDT
         </button>
@@ -380,14 +385,14 @@ function CreateAdForm({ onCreated }: { onCreated: () => void }) {
         <button
           type="button"
           onClick={() => setPricingMode('FIXED')}
-          className={`flex-1 rounded-md py-2 text-xs font-medium ${pricingMode === 'FIXED' ? 'bg-surfaceRaised text-paper border border-teal' : 'bg-surfaceRaised text-muted border border-transparent'}`}
+          className={`flex-1 rounded-md py-2 text-xs font-medium ${pricingMode === 'FIXED' ? TOGGLE_ACTIVE : 'bg-surfaceRaised text-muted border border-transparent'}`}
         >
           Fixed price
         </button>
         <button
           type="button"
           onClick={() => setPricingMode('FLOATING')}
-          className={`flex-1 rounded-md py-2 text-xs font-medium ${pricingMode === 'FLOATING' ? 'bg-surfaceRaised text-paper border border-teal' : 'bg-surfaceRaised text-muted border border-transparent'}`}
+          className={`flex-1 rounded-md py-2 text-xs font-medium ${pricingMode === 'FLOATING' ? TOGGLE_ACTIVE : 'bg-surfaceRaised text-muted border border-transparent'}`}
         >
           Floating (track market rate)
         </button>
@@ -417,7 +422,7 @@ function CreateAdForm({ onCreated }: { onCreated: () => void }) {
                 type="button"
                 onClick={() => toggleMethod(method.label)}
                 className={`flex flex-col items-center gap-1 rounded-md py-2 px-1 border transition-colors ${
-                  selected ? 'border-teal bg-surfaceRaised' : 'border-white/10 hover:border-white/25'
+                  selected ? 'border-transparent bg-gradient-to-br from-gold/20 to-teal/20 ring-1 ring-teal' : 'border-white/10 hover:border-white/25'
                 }`}
               >
                 <span
