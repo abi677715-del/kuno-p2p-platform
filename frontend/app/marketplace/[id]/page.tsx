@@ -151,7 +151,7 @@ export default function AdDetailPage() {
           <button
             type="submit"
             disabled={loading || isBlocked}
-            className="w-full rounded-md bg-gold py-2 text-ink font-medium hover:bg-gold/90 transition-colors disabled:opacity-60"
+            className="w-full rounded-md bg-gradient-to-br from-gold to-teal py-2 text-ink font-medium hover:opacity-90 transition-opacity disabled:opacity-60"
           >
             {isBlocked ? 'You have blocked this trader' : loading ? 'Starting trade…' : 'Start trade'}
           </button>
