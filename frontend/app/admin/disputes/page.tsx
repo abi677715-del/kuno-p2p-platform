@@ -96,7 +96,16 @@ export default function AdminDisputesPage() {
                       <span className="text-muted font-mono text-xs">
                         {m.sender?.email ?? m.senderId} · {new Date(m.createdAt).toLocaleString()}
                       </span>
-                      <p className="text-paper">{m.message}</p>
+                      {m.message && <p className="text-paper">{m.message}</p>}
+                      {m.attachmentUrl && (
+                        <a href={m.attachmentUrl} target="_blank" rel="noopener noreferrer">
+                          <img
+                            src={m.attachmentUrl}
+                            alt="Attachment"
+                            className="mt-1 max-h-48 rounded-md border border-white/10"
+                          />
+                        </a>
+                      )}
                     </div>
                   ))}
                   {messages.length === 0 && !messagesError && (
