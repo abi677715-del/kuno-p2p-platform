@@ -35,6 +35,11 @@ export class TradesController {
     return this.tradesService.markPaid(req.user.userId, id);
   }
 
+  @Post(':id/read')
+  markRead(@Req() req: any, @Param('id') id: string) {
+    return this.tradesService.markRead(req.user.userId, id);
+  }
+
   @Post(':id/confirm')
   confirm(@Req() req: any, @Param('id') id: string, @Body() dto: ConfirmPaymentDto) {
     return this.tradesService.confirmPayment(req.user.userId, id, dto);
