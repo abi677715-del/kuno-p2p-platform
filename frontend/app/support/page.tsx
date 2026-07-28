@@ -109,7 +109,7 @@ export default function SupportPage() {
             />
             {error && <p className="text-red-400 text-sm">{error}</p>}
             {success && <p className="text-teal text-sm">Request submitted — we’ll get back to you soon.</p>}
-            <button type="submit" className="rounded-md bg-gold px-4 py-2 text-ink font-medium">
+            <button type="submit" className="rounded-md bg-gradient-to-br from-gold to-teal px-4 py-2 text-ink font-medium hover:opacity-90 transition-opacity">
               Submit
             </button>
           </form>
