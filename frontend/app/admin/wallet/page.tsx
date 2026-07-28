@@ -101,7 +101,7 @@ function Row({
         <p className="text-xs text-muted truncate">{detailLabel}: {detail}</p>
       </div>
       <div className="flex gap-2 shrink-0">
-        <button onClick={onConfirm} className="rounded-md bg-teal px-3 py-1.5 text-ink text-sm font-medium">
+        <button onClick={onConfirm} className="rounded-md bg-gradient-to-br from-gold to-teal px-3 py-1.5 text-ink text-sm font-medium hover:opacity-90 transition-opacity">
           Confirm
         </button>
         <button onClick={onReject} className="rounded-md border border-white/15 px-3 py-1.5 text-paper text-sm font-medium">
