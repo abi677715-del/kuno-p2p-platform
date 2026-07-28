@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { PrismaModule } from './common/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
@@ -12,6 +14,9 @@ import { AuditModule } from './audit/audit.module';
 
 @Module({
   imports: [
+    // Generous global default — signup/login apply a much stricter limit
+    // themselves via @Throttle(), see auth.controller.ts.
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
     PrismaModule,
     AuthModule,
     UsersModule,
@@ -23,5 +28,6 @@ import { AuditModule } from './audit/audit.module';
     SupportModule,
     AuditModule,
   ],
+  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}
