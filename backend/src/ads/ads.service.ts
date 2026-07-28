@@ -99,7 +99,9 @@ export class AdsService {
   async findActive(side?: AdSide) {
     const ads = await this.prisma.ad.findMany({
       where: { status: AdStatus.ACTIVE, ...(side ? { side } : {}) },
-      include: { user: { select: { id: true, email: true, fullName: true, createdAt: true, lastSeenAt: true } } },
+      include: {
+        user: { select: { id: true, email: true, fullName: true, createdAt: true, lastSeenAt: true, isMerchant: true } },
+      },
       orderBy: { createdAt: 'desc' },
     });
     return this.attachMerchantStats(ads);
@@ -108,7 +110,7 @@ export class AdsService {
   async findById(id: string) {
     const ad = await this.prisma.ad.findUnique({
       where: { id },
-      include: { user: { select: { id: true, email: true, fullName: true, lastSeenAt: true } } },
+      include: { user: { select: { id: true, email: true, fullName: true, lastSeenAt: true, isMerchant: true } } },
     });
     if (!ad) throw new NotFoundException('Ad not found');
     const [withStats] = await this.attachMerchantStats([ad]);
