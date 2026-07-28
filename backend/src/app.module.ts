@@ -11,6 +11,8 @@ import { KycModule } from './kyc/kyc.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { SupportModule } from './support/support.module';
 import { AuditModule } from './audit/audit.module';
+import { RelationsModule } from './relations/relations.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -27,6 +29,8 @@ import { AuditModule } from './audit/audit.module';
     NotificationsModule,
     SupportModule,
     AuditModule,
+    RelationsModule,
+    AdminModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
