@@ -89,6 +89,8 @@ export default function TradeRoomPage() {
   const [error, setError] = useState('');
   const [attachment, setAttachment] = useState<string | null>(null);
   const [attachError, setAttachError] = useState('');
+  const [twoFaEnabled, setTwoFaEnabled] = useState(false);
+  const [confirmCode, setConfirmCode] = useState('');
   const bottomRef = useRef<HTMLDivElement>(null);
   const socketRef = useRef<Socket | null>(null);
   const userId = useRef<string | null>(null);
@@ -108,6 +110,9 @@ export default function TradeRoomPage() {
     apiFetch(`/trades/${tradeId}/messages`)
       .then(setMessages)
       .catch((err) => setError(err.message));
+    apiFetch('/users/me')
+      .then((data) => setTwoFaEnabled(!!data.twoFaEnabled))
+      .catch(() => {});
     refreshTrade();
     const statusInterval = setInterval(refreshTrade, 5000);
 
@@ -129,9 +134,10 @@ export default function TradeRoomPage() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages.length]);
 
-  async function act(action: 'paid' | 'confirm' | 'cancel') {
+  async function act(action: 'paid' | 'confirm' | 'cancel', body?: Record<string, unknown>) {
     try {
-      await apiFetch(`/trades/${tradeId}/${action}`, { method: 'POST' });
+      await apiFetch(`/trades/${tradeId}/${action}`, { method: 'POST', body: body ? JSON.stringify(body) : undefined });
+      setConfirmCode('');
       refreshTrade();
     } catch (err: any) {
       setError(err.message);
@@ -171,9 +177,18 @@ export default function TradeRoomPage() {
 
   if (!trade) return <main className="min-h-screen bg-ink px-6 py-10 text-muted">{error || 'Loading…'}</main>;
 
+  const feePercent = trade.feePercent ?? 2;
+
   return (
     <main className="min-h-screen bg-ink px-6 py-10 md:px-12">
       <div className="max-w-2xl mx-auto">
+        <div className="bg-gold/10 border border-gold/30 rounded-xl p-4 mb-4">
+          <p className="text-xs text-gold">
+            ⚠️ Only confirm and release USDT after you've verified the payment actually arrived in your
+            bank or mobile money account. Releasing escrow is immediate and cannot be undone.
+          </p>
+        </div>
+
         <div className="bg-surface border border-white/10 rounded-xl p-5 mb-6">
           <div className="flex items-center justify-between mb-2">
             <span className="font-mono text-xs text-teal uppercase">{trade.status}</span>
@@ -184,8 +199,8 @@ export default function TradeRoomPage() {
           <p className="text-sm text-muted mb-1">{STATUS_COPY[trade.status] ?? ''}</p>
           <TradeCountdown trade={trade} />
           <p className="text-xs text-muted mb-4">
-            A 2% platform fee applies on completion — the buyer receives ≈{' '}
-            {(parseFloat(trade.amountUsdt) * 0.98).toFixed(2)} USDT after the fee.
+            A {feePercent}% platform fee applies on completion — the buyer receives ≈{' '}
+            {(parseFloat(trade.amountUsdt) * (1 - feePercent / 100)).toFixed(2)} USDT after the fee.
           </p>
 
           <div className="flex gap-3 flex-wrap">
@@ -194,10 +209,27 @@ export default function TradeRoomPage() {
                 Mark as paid
               </button>
             )}
-            {trade.status === 'PAID' && (
+            {trade.status === 'PAID' && !twoFaEnabled && (
               <button onClick={() => act('confirm')} className="rounded-md bg-teal px-4 py-2 text-ink text-sm font-medium">
                 Confirm payment received
               </button>
+            )}
+            {trade.status === 'PAID' && twoFaEnabled && (
+              <div className="flex items-center gap-2 w-full">
+                <input
+                  value={confirmCode}
+                  onChange={(e) => setConfirmCode(e.target.value)}
+                  placeholder="Authenticator code"
+                  className="w-36 bg-surfaceRaised rounded-md px-3 py-2 text-paper text-sm outline-none focus:ring-2 focus:ring-teal"
+                />
+                <button
+                  onClick={() => act('confirm', { code: confirmCode })}
+                  disabled={!confirmCode}
+                  className="rounded-md bg-teal px-4 py-2 text-ink text-sm font-medium disabled:opacity-50"
+                >
+                  Confirm & release
+                </button>
+              </div>
             )}
             {['PENDING', 'ESCROW_LOCKED'].includes(trade.status) && (
               <button
