@@ -11,20 +11,38 @@ type UserRow = {
   role: string;
   status: string;
   emailVerified: boolean;
+  isMerchant: boolean;
   createdAt: string;
 };
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [error, setError] = useState('');
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   useEffect(() => {
     apiFetch('/users/admin/all').then(setUsers).catch((e) => setError(e.message));
   }, []);
 
+  async function toggleMerchant(u: UserRow) {
+    setBusyId(u.id);
+    setError('');
+    try {
+      await apiFetch(`/users/admin/${u.id}/merchant`, {
+        method: 'PATCH',
+        body: JSON.stringify({ isMerchant: !u.isMerchant }),
+      });
+      setUsers((prev) => prev.map((row) => (row.id === u.id ? { ...row, isMerchant: !u.isMerchant } : row)));
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   return (
     <main className="min-h-screen bg-ink px-6 py-10 md:px-12">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-5xl mx-auto">
         <h1 className="font-display font-bold text-2xl text-paper mb-6">Users</h1>
         {error && <p className="text-red-400 text-sm mb-4">{error}</p>}
         <div className="bg-surface border border-white/10 rounded-xl overflow-hidden">
@@ -37,6 +55,7 @@ export default function AdminUsersPage() {
                   <th className="px-4 py-3 font-medium">Email</th>
                   <th className="px-4 py-3 font-medium">Role</th>
                   <th className="px-4 py-3 font-medium">Status</th>
+                  <th className="px-4 py-3 font-medium">Merchant</th>
                   <th className="px-4 py-3 font-medium">Joined</th>
                 </tr>
               </thead>
@@ -48,6 +67,18 @@ export default function AdminUsersPage() {
                     <td className="px-4 py-3 text-muted">{u.email}</td>
                     <td className="px-4 py-3 text-muted">{u.role}</td>
                     <td className="px-4 py-3 text-muted">{u.status}</td>
+                    <td className="px-4 py-3">
+                      <button
+                        onClick={() => toggleMerchant(u)}
+                        disabled={busyId === u.id}
+                        className={`text-xs font-medium px-2 py-1 rounded disabled:opacity-50 ${
+                          u.isMerchant ? 'bg-teal/20 text-teal' : 'bg-white/10 text-muted'
+                        }`}
+                        title="Merchants trade on their own ads at a 1% fee instead of 2%"
+                      >
+                        {u.isMerchant ? 'Merchant · 1% fee' : 'Make merchant'}
+                      </button>
+                    </td>
                     <td className="px-4 py-3 text-muted">{new Date(u.createdAt).toLocaleDateString()}</td>
                   </tr>
                 ))}
