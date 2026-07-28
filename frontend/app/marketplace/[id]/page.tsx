@@ -61,6 +61,11 @@ export default function AdDetailPage() {
           <span className="text-[11px] text-muted">{isOnline(ad.user.lastSeenAt) ? 'Online' : 'Offline'}</span>
         </div>
         <div className="flex items-center gap-1.5 mt-1">
+          {ad.user.isMerchant && (
+            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-teal/20 text-teal" title="Verified merchant — 1% trade fee">
+              Merchant
+            </span>
+          )}
           {ad.user.tier && (
             <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${TIER_COLOR[ad.user.tier] ?? 'bg-white/10 text-muted'}`}>
               {ad.user.tier}
@@ -89,7 +94,7 @@ export default function AdDetailPage() {
           </label>
           {error && <p className="text-red-400 text-sm">{error}</p>}
           <p className="text-xs text-muted">
-            A 2% platform fee is deducted from the USDT when this trade completes.
+            A {ad.user.isMerchant ? '1%' : '2%'} platform fee is deducted from the USDT when this trade completes.
           </p>
           <button
             type="submit"
