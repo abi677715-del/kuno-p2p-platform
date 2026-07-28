@@ -1,4 +1,5 @@
 import { Body, Controller, HttpCode, Post, Req, UseGuards } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { SignupDto } from './dto/signup.dto';
 import { LoginDto } from './dto/login.dto';
@@ -8,17 +9,23 @@ import { VerifyTwoFaLoginDto } from './dto/verify-two-fa-login.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
 
+// 5 attempts per minute per IP — generous for a mistyped password, tight
+// enough to make brute-forcing or mass account creation impractical.
+const AUTH_THROTTLE = { default: { limit: 5, ttl: 60_000 } };
+
 @Controller('auth')
 export class AuthController {
   constructor(private authService: AuthService) {}
 
   @Post('signup')
+  @Throttle(AUTH_THROTTLE)
   signup(@Body() dto: SignupDto) {
     return this.authService.signup(dto);
   }
 
   @Post('login')
   @HttpCode(200)
+  @Throttle(AUTH_THROTTLE)
   login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
   }
