@@ -107,7 +107,10 @@ export class TradesService {
     if (trade.status !== TradeStatus.ESCROW_LOCKED) {
       throw new BadRequestException(`Cannot mark paid from status ${trade.status}`);
     }
-    const updated = await this.prisma.trade.update({ where: { id: tradeId }, data: { status: TradeStatus.PAID } });
+    const updated = await this.prisma.trade.update({
+      where: { id: tradeId },
+      data: { status: TradeStatus.PAID, paidAt: new Date() },
+    });
     const message = 'The buyer marked this trade as paid — please confirm once you\u2019ve received it.';
     await this.notificationsService.create(
       trade.sellerId,
@@ -200,11 +203,77 @@ export class TradesService {
     return updated;
   }
 
+  // --- Timeouts (called by TradeTimeoutService on a schedule) ---
+
+  /**
+   * Escrow that's been locked for too long with no payment claimed ties up
+   * the seller's funds indefinitely — cancel it and refund the seller.
+   * Safe to auto-cancel here because no fiat has changed hands yet.
+   */
+  async autoCancelStaleEscrow(olderThanMinutes: number) {
+    const cutoff = new Date(Date.now() - olderThanMinutes * 60_000);
+    const stale = await this.prisma.trade.findMany({
+      where: { status: TradeStatus.ESCROW_LOCKED, createdAt: { lt: cutoff } },
+      include: { escrow: true },
+    });
+
+    for (const trade of stale) {
+      if (trade.escrow) {
+        await this.walletService.refundFunds(trade.sellerId, Currency.USDT, trade.amountUsdt.toString(), trade.id);
+        await this.prisma.escrow.update({ where: { tradeId: trade.id }, data: { status: EscrowStatus.REFUNDED } });
+      }
+      await this.prisma.trade.update({ where: { id: trade.id }, data: { status: TradeStatus.CANCELLED } });
+      const message = `This trade was automatically cancelled — no payment was marked within ${olderThanMinutes} minutes.`;
+      await Promise.all([
+        this.notificationsService.create(trade.buyerId, 'TRADE_CANCELLED', { tradeId: trade.id, message }, { subject: 'Trade cancelled', message, tradeId: trade.id }),
+        this.notificationsService.create(trade.sellerId, 'TRADE_CANCELLED', { tradeId: trade.id, message }, { subject: 'Trade cancelled', message, tradeId: trade.id }),
+      ]);
+    }
+    return stale.length;
+  }
+
+  /**
+   * A buyer who already sent fiat and is waiting on the seller to confirm
+   * must never be auto-cancelled — that would let the seller keep both the
+   * fiat and the escrowed USDT. Escalate to a dispute instead, so an admin
+   * reviews the chat log and decides fairly.
+   */
+  async autoEscalateUnconfirmedPayments(olderThanMinutes: number) {
+    const cutoff = new Date(Date.now() - olderThanMinutes * 60_000);
+    const stale = await this.prisma.trade.findMany({
+      where: { status: TradeStatus.PAID, paidAt: { lt: cutoff } },
+    });
+
+    for (const trade of stale) {
+      await this.prisma.dispute.create({
+        data: {
+          tradeId: trade.id,
+          raisedById: trade.buyerId,
+          reason: `Auto-escalated: seller did not confirm payment within ${olderThanMinutes} minutes of the buyer marking it paid.`,
+          status: DisputeStatus.OPEN,
+        },
+      });
+      await this.prisma.trade.update({ where: { id: trade.id }, data: { status: TradeStatus.DISPUTED } });
+      const message = 'The seller didn’t confirm your payment in time — this trade has been escalated to support for review.';
+      await Promise.all([
+        this.notificationsService.create(trade.buyerId, 'DISPUTE_OPENED', { tradeId: trade.id, message }, { subject: 'Trade escalated to support', message, tradeId: trade.id }),
+        this.notificationsService.create(trade.sellerId, 'DISPUTE_OPENED', { tradeId: trade.id, message }, { subject: 'Trade escalated to support', message, tradeId: trade.id }),
+      ]);
+    }
+    return stale.length;
+  }
+
   async sendMessage(userId: string, tradeId: string, dto: SendMessageDto) {
     const trade = await this.findById(tradeId);
     this.assertParticipant(trade, userId);
+    if (!dto.message?.trim() && !dto.attachmentUrl) {
+      throw new BadRequestException('Message must include text or an attachment');
+    }
+    if (dto.attachmentUrl && dto.attachmentUrl.length > 700_000) {
+      throw new BadRequestException('Attachment is too large');
+    }
     return this.prisma.tradeMessage.create({
-      data: { tradeId, senderId: userId, message: dto.message, attachmentUrl: dto.attachmentUrl },
+      data: { tradeId, senderId: userId, message: dto.message ?? '', attachmentUrl: dto.attachmentUrl },
     });
   }
 
