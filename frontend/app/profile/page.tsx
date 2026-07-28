@@ -11,6 +11,7 @@ type Profile = {
   emailVerified: boolean;
   twoFaEnabled: boolean;
   bid?: string;
+  isMerchant?: boolean;
 };
 
 export default function ProfilePage() {
@@ -84,6 +85,11 @@ export default function ProfilePage() {
             {profile.bid && (
               <p className="text-muted">
                 Your trader ID: <span className="text-gold font-mono">{profile.bid}</span>
+                {profile.isMerchant && (
+                  <span className="ml-2 text-[10px] font-medium px-1.5 py-0.5 rounded bg-teal/20 text-teal align-middle">
+                    Merchant · 1% fee
+                  </span>
+                )}
               </p>
             )}
             <p className="text-muted">
