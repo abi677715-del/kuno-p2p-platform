@@ -36,10 +36,16 @@ export class UsersService {
         role: true,
         status: true,
         emailVerified: true,
+        isMerchant: true,
         createdAt: true,
       },
       orderBy: { createdAt: 'desc' },
     });
+  }
+
+  /** Merchants trade on their own ads at a discounted platform fee — see WalletService.getFeePercent. */
+  setMerchantStatus(userId: string, isMerchant: boolean) {
+    return this.prisma.user.update({ where: { id: userId }, data: { isMerchant } });
   }
 
   /**
