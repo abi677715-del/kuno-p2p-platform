@@ -5,12 +5,15 @@ import { WalletService } from '../wallet/wallet.service';
 import { AdsService } from '../ads/ads.service';
 import { KycService } from '../kyc/kyc.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { RelationsService } from '../relations/relations.service';
 import { AdSide, Currency, DisputeStatus, EscrowStatus, TradeStatus } from '@prisma/client';
 import { CreateTradeDto } from './dto/create-trade.dto';
 import { DisputeTradeDto } from './dto/dispute-trade.dto';
 import { SendMessageDto } from './dto/send-message.dto';
 import { ConfirmPaymentDto } from './dto/confirm-payment.dto';
 import { ResolveDisputeDto, DisputeOutcome } from './dto/resolve-dispute.dto';
+
+const REFERRAL_FEE_SHARE_PERCENT = parseFloat(process.env.REFERRAL_FEE_SHARE_PERCENT ?? '20');
 
 @Injectable()
 export class TradesService {
@@ -20,6 +23,7 @@ export class TradesService {
     private adsService: AdsService,
     private kycService: KycService,
     private notificationsService: NotificationsService,
+    private relationsService: RelationsService,
   ) {}
 
   /**
@@ -41,8 +45,12 @@ export class TradesService {
       throw new BadRequestException('You cannot trade against your own ad');
     }
 
+    if (await this.relationsService.isBlocked(sellerId, buyerId)) {
+      throw new BadRequestException('You cannot trade with this user');
+    }
+
     const amountUsdt = dto.amountUsdt;
-    const amountEtb = (parseFloat(amountUsdt) * parseFloat(ad.priceEtb.toString())).toFixed(4);
+    const amountEtb = (parseFloat(amountUsdt) * parseFloat(ad.effectivePriceEtb)).toFixed(4);
 
     const amountEtbNum = parseFloat(amountEtb);
     const minLimit = parseFloat(ad.minLimitEtb.toString());
@@ -185,7 +193,10 @@ export class TradesService {
       data: { status: EscrowStatus.RELEASED, releasedAt: new Date() },
     });
 
-    const updated = await this.prisma.trade.update({ where: { id: tradeId }, data: { status: TradeStatus.COMPLETED } });
+    const updated = await this.prisma.trade.update({
+      where: { id: tradeId },
+      data: { status: TradeStatus.COMPLETED, completedAt: new Date() },
+    });
     const message = `Trade complete — ${releaseResult.netAmount} USDT released to your wallet (${releaseResult.feeAmount} USDT platform fee).`;
     await this.notificationsService.create(
       trade.buyerId,
@@ -193,7 +204,40 @@ export class TradesService {
       { tradeId, message },
       { subject: 'Trade complete', message, tradeId },
     );
+    await this.creditReferralBonuses(trade, releaseResult.feeAmount);
     return updated;
+  }
+
+  /** Marks the trade's chat as read up to now, for whichever side the caller is on. */
+  async markRead(userId: string, tradeId: string) {
+    const trade = await this.findById(tradeId);
+    this.assertParticipant(trade, userId);
+    const field = trade.buyerId === userId ? 'buyerLastReadAt' : 'sellerLastReadAt';
+    await this.prisma.trade.update({ where: { id: tradeId }, data: { [field]: new Date() } });
+    return { ok: true };
+  }
+
+  /**
+   * Pays out a cut of the platform fee to whichever party's referrer(s)
+   * exist — both the buyer's and seller's referrers can earn on the same
+   * trade, since each is being rewarded for bringing in a different trader.
+   */
+  private async creditReferralBonuses(trade: { id: string; buyerId: string; sellerId: string }, feeAmount: string) {
+    if (REFERRAL_FEE_SHARE_PERCENT <= 0) return;
+    const bonus = ((parseFloat(feeAmount) * REFERRAL_FEE_SHARE_PERCENT) / 100).toFixed(8);
+    if (parseFloat(bonus) <= 0) return;
+
+    const [buyer, seller] = await Promise.all([
+      this.prisma.user.findUnique({ where: { id: trade.buyerId }, select: { referredById: true } }),
+      this.prisma.user.findUnique({ where: { id: trade.sellerId }, select: { referredById: true } }),
+    ]);
+    const referrerIds = [...new Set([buyer?.referredById, seller?.referredById].filter((id): id is string => !!id))];
+
+    await Promise.all(
+      referrerIds.map((referrerId) =>
+        this.walletService.creditReferralBonus(referrerId, Currency.USDT, bonus, trade.id).catch(() => {}),
+      ),
+    );
   }
 
   /** Cancels a trade before payment is claimed, refunding escrow to the seller. */
@@ -366,7 +410,7 @@ export class TradesService {
 
     if (dto.outcome === DisputeOutcome.RELEASE_TO_BUYER) {
       const feePercent = await this.resolveFeePercent(trade);
-      await this.walletService.releaseFunds(
+      const releaseResult = await this.walletService.releaseFunds(
         trade.sellerId,
         trade.buyerId,
         Currency.USDT,
@@ -375,7 +419,11 @@ export class TradesService {
         feePercent,
       );
       await this.prisma.escrow.update({ where: { tradeId: trade.id }, data: { status: EscrowStatus.RELEASED, releasedAt: new Date() } });
-      await this.prisma.trade.update({ where: { id: trade.id }, data: { status: TradeStatus.COMPLETED } });
+      await this.prisma.trade.update({
+        where: { id: trade.id },
+        data: { status: TradeStatus.COMPLETED, completedAt: new Date() },
+      });
+      await this.creditReferralBonuses(trade, releaseResult.feeAmount);
     } else {
       await this.walletService.refundFunds(trade.sellerId, Currency.USDT, trade.amountUsdt.toString(), trade.id);
       await this.prisma.escrow.update({ where: { tradeId: trade.id }, data: { status: EscrowStatus.REFUNDED } });
