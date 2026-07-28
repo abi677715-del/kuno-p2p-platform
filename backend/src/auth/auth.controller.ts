@@ -7,6 +7,8 @@ import { EnableTwoFaDto } from './dto/enable-two-fa.dto';
 import { TwoFaCodeDto } from './dto/two-fa-code.dto';
 import { VerifyTwoFaLoginDto } from './dto/verify-two-fa-login.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
 
 // 5 attempts per minute per IP — generous for a mistyped password, tight
@@ -34,6 +36,20 @@ export class AuthController {
   @HttpCode(200)
   verifyEmail(@Body() dto: VerifyEmailDto) {
     return this.authService.verifyEmail(dto.token);
+  }
+
+  @Post('forgot-password')
+  @HttpCode(200)
+  @Throttle(AUTH_THROTTLE)
+  forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(dto);
+  }
+
+  @Post('reset-password')
+  @HttpCode(200)
+  @Throttle(AUTH_THROTTLE)
+  resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.authService.resetPassword(dto);
   }
 
   @Post('2fa/verify-login')
