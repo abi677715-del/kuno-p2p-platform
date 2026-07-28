@@ -42,6 +42,7 @@ enum TxType {
   RELEASE
   REFUND
   FEE
+  REFERRAL
 }
 
 enum TxStatus {
@@ -58,6 +59,16 @@ enum AdSide {
 enum AdStatus {
   ACTIVE
   PAUSED
+}
+
+enum AdPricingMode {
+  FIXED
+  FLOATING
+}
+
+enum RelationType {
+  BLOCK
+  FAVORITE
 }
 
 enum TradeStatus {
@@ -105,6 +116,7 @@ model User {
   createdAt              DateTime   @default(now())
   lastSeenAt             DateTime   @default(now())
   defaultPaymentMethods  String[]   @default([])
+  referredById           String?
 
   kycRecord        KycRecord?
   wallets          Wallet[]
@@ -116,8 +128,25 @@ model User {
   disputesRaised   Dispute[]
   notifications    Notification[]
   supportTickets   SupportTicket[]
+  referredBy       User?            @relation("referrals", fields: [referredById], references: [id])
+  referrals        User[]           @relation("referrals")
+  relationsMade    UserRelation[]   @relation("relationOwner")
+  relationsOfMe    UserRelation[]   @relation("relationTarget")
 
   @@map("users")
+}
+
+model UserRelation {
+  id           String       @id @default(uuid())
+  userId       String
+  user         User         @relation("relationOwner", fields: [userId], references: [id])
+  targetUserId String
+  targetUser   User         @relation("relationTarget", fields: [targetUserId], references: [id])
+  type         RelationType
+  createdAt    DateTime     @default(now())
+
+  @@unique([userId, targetUserId])
+  @@map("user_relations")
 }
 
 model KycRecord {
@@ -175,17 +204,19 @@ model DepositAddress {
 }
 
 model Ad {
-  id             String   @id @default(uuid())
+  id             String        @id @default(uuid())
   userId         String
-  user           User     @relation(fields: [userId], references: [id])
+  user           User          @relation(fields: [userId], references: [id])
   side           AdSide
-  priceEtb       Decimal  @db.Decimal(20, 4)
-  minLimitEtb    Decimal  @db.Decimal(20, 4)
-  maxLimitEtb    Decimal  @db.Decimal(20, 4)
+  priceEtb       Decimal       @db.Decimal(20, 4)
+  minLimitEtb    Decimal       @db.Decimal(20, 4)
+  maxLimitEtb    Decimal       @db.Decimal(20, 4)
   paymentMethods String[]
-  description    String?  @db.Text
-  status         AdStatus @default(ACTIVE)
-  createdAt      DateTime @default(now())
+  description    String?       @db.Text
+  status         AdStatus      @default(ACTIVE)
+  pricingMode    AdPricingMode @default(FIXED)
+  marginPercent  Decimal?      @db.Decimal(6, 2)
+  createdAt      DateTime      @default(now())
 
   trades Trade[]
 
@@ -205,6 +236,9 @@ model Trade {
   status     TradeStatus @default(PENDING)
   createdAt  DateTime    @default(now())
   paidAt     DateTime?
+  completedAt      DateTime?
+  buyerLastReadAt  DateTime?
+  sellerLastReadAt DateTime?
 
   escrow   Escrow?
   messages TradeMessage[]
