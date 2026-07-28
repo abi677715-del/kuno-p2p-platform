@@ -1,6 +1,6 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
-import { AdSide, AdStatus } from '@prisma/client';
+import { AdSide, AdStatus, Currency } from '@prisma/client';
 import { CreateAdDto } from './dto/create-ad.dto';
 import { KycService } from '../kyc/kyc.service';
 
@@ -13,6 +13,21 @@ export class AdsService {
 
   async create(userId: string, dto: CreateAdDto) {
     await this.kycService.assertApproved(userId);
+
+    // A SELL ad promises up to maxLimitEtb worth of USDT — refuse to post it
+    // if the seller doesn't actually hold enough to cover that promise, so
+    // buyers never hit a surprise "insufficient balance" at trade time.
+    if (dto.side === AdSide.SELL) {
+      const wallet = await this.prisma.wallet.findUnique({ where: { userId_currency: { userId, currency: Currency.USDT } } });
+      const available = wallet ? parseFloat(wallet.balance.toString()) : 0;
+      const maxUsdtNeeded = parseFloat(dto.maxLimitEtb) / parseFloat(dto.priceEtb);
+      if (available < maxUsdtNeeded) {
+        throw new BadRequestException(
+          `You need at least ${maxUsdtNeeded.toFixed(2)} USDT available to cover this ad's max limit — your balance is ${available.toFixed(2)} USDT. Deposit more USDT or lower the max limit.`,
+        );
+      }
+    }
+
     return this.prisma.ad.create({
       data: {
         userId,
