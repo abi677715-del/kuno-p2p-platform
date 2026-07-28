@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
+import { displayName } from '@/lib/displayName';
 
 const ONLINE_WINDOW_MS = 5 * 60 * 1000;
 
@@ -50,7 +51,7 @@ export default function AdDetailPage() {
         </span>
         <div className="flex items-center gap-1.5 mt-1">
           <span className={`inline-block h-1.5 w-1.5 rounded-full ${isOnline(ad.user.lastSeenAt) ? 'bg-teal' : 'bg-muted'}`} />
-          <p className="text-paper font-medium">{ad.user.email}</p>
+          <p className="text-paper font-medium">{displayName(ad.user)}</p>
           <span className="text-[11px] text-muted">{isOnline(ad.user.lastSeenAt) ? 'Online' : 'Offline'}</span>
         </div>
         <p className="font-mono text-2xl text-paper mt-3">{ad.priceEtb} ETB / USDT</p>
