@@ -247,12 +247,12 @@ export default function TradeRoomPage() {
 
           <div className="flex gap-3 flex-wrap">
             {trade.status === 'ESCROW_LOCKED' && (
-              <button onClick={() => act('paid')} className="rounded-md bg-gold px-4 py-2 text-ink text-sm font-medium">
+              <button onClick={() => act('paid')} className="rounded-md bg-gradient-to-br from-gold to-teal px-4 py-2 text-ink text-sm font-medium hover:opacity-90 transition-opacity">
                 Mark as paid
               </button>
             )}
             {trade.status === 'PAID' && !twoFaEnabled && (
-              <button onClick={() => act('confirm')} className="rounded-md bg-teal px-4 py-2 text-ink text-sm font-medium">
+              <button onClick={() => act('confirm')} className="rounded-md bg-gradient-to-br from-gold to-teal px-4 py-2 text-ink text-sm font-medium hover:opacity-90 transition-opacity">
                 Confirm payment received
               </button>
             )}
@@ -267,7 +267,7 @@ export default function TradeRoomPage() {
                 <button
                   onClick={() => act('confirm', { code: confirmCode })}
                   disabled={!confirmCode}
-                  className="rounded-md bg-teal px-4 py-2 text-ink text-sm font-medium disabled:opacity-50"
+                  className="rounded-md bg-gradient-to-br from-gold to-teal px-4 py-2 text-ink text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
                 >
                   Confirm & release
                 </button>
@@ -349,7 +349,7 @@ export default function TradeRoomPage() {
               placeholder="Message the other trader…"
               className="flex-1 bg-surfaceRaised rounded-md px-3 py-2 text-paper outline-none focus:ring-2 focus:ring-teal"
             />
-            <button type="submit" className="rounded-md bg-gold px-4 py-2 text-ink font-medium">
+            <button type="submit" className="rounded-md bg-gradient-to-br from-gold to-teal px-4 py-2 text-ink font-medium hover:opacity-90 transition-opacity">
               Send
             </button>
           </form>
