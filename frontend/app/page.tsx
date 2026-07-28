@@ -54,7 +54,7 @@ function Nav() {
         </a>
         <a
           href="/signup"
-          className="rounded-md bg-teal px-4 py-2 text-ink font-medium hover:bg-teal/90 transition-colors"
+          className="rounded-md bg-gradient-to-br from-gold to-teal px-4 py-2 text-ink font-medium hover:opacity-90 transition-opacity"
         >
           Get started
         </a>
@@ -92,7 +92,7 @@ function Hero({
         <div className="flex gap-4">
           <a
             href="/signup"
-            className="rounded-md bg-gold px-6 py-3 text-ink font-medium hover:bg-gold/90 transition-colors"
+            className="rounded-md bg-gradient-to-br from-gold to-teal px-6 py-3 text-ink font-medium hover:opacity-90 transition-opacity"
           >
             Create free account
           </a>
@@ -209,7 +209,7 @@ function Cta() {
       <p className="text-muted mb-8">Verification takes a few minutes. Your first trade can happen today.</p>
       <a
         href="/signup"
-        className="inline-block rounded-md bg-gold px-8 py-3 text-ink font-medium hover:bg-gold/90 transition-colors"
+        className="inline-block rounded-md bg-gradient-to-br from-gold to-teal px-8 py-3 text-ink font-medium hover:opacity-90 transition-opacity"
       >
         Create free account
       </a>
