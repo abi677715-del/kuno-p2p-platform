@@ -26,6 +26,22 @@ export class UsersService {
     return this.prisma.user.findUnique({ where: { id } });
   }
 
+  listAllForAdmin() {
+    return this.prisma.user.findMany({
+      select: {
+        id: true,
+        bidNumber: true,
+        email: true,
+        fullName: true,
+        role: true,
+        status: true,
+        emailVerified: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
   /**
    * Lets ops promote an account to ADMIN just by listing its email in the
    * ADMIN_EMAILS env var, instead of hand-editing the database — applied
