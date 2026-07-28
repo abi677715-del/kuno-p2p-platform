@@ -200,6 +200,7 @@ model Trade {
   amountEtb  Decimal     @db.Decimal(20, 4)
   status     TradeStatus @default(PENDING)
   createdAt  DateTime    @default(now())
+  paidAt     DateTime?
 
   escrow   Escrow?
   messages TradeMessage[]
