@@ -27,7 +27,7 @@ export class TradesController {
 
   @Get(':id')
   getOne(@Param('id') id: string) {
-    return this.tradesService.findById(id);
+    return this.tradesService.getOne(id);
   }
 
   @Post(':id/paid')
