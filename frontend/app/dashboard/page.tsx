@@ -21,6 +21,7 @@ const adminLinks = [
   { href: '/admin/revenue', label: 'Revenue', description: 'Platform commission collected' },
   { href: '/admin/support', label: 'Support tickets', description: 'Respond to user help requests' },
   { href: '/admin/audit-log', label: 'Audit log', description: 'Record of sensitive admin actions' },
+  { href: '/admin/users', label: 'Users', description: 'List of all registered users and their trader ID' },
 ];
 
 function getRole(): string | null {
