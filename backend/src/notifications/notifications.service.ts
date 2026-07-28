@@ -55,4 +55,14 @@ export class NotificationsService {
     });
     return { ok: true };
   }
+
+  async delete(userId: string, id: string) {
+    await this.prisma.notification.deleteMany({ where: { id, userId } });
+    return { ok: true };
+  }
+
+  async deleteAll(userId: string) {
+    await this.prisma.notification.deleteMany({ where: { userId } });
+    return { ok: true };
+  }
 }
