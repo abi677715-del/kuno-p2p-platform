@@ -15,6 +15,7 @@ const links = [
 ];
 
 const adminLinks = [
+  { href: '/admin', label: 'Overview', description: 'At-a-glance counts of everything waiting on you' },
   { href: '/admin/disputes', label: 'Dispute resolution', description: 'Review trade chats and resolve disputes' },
   { href: '/admin/kyc', label: 'KYC review', description: 'Approve or reject identity verification' },
   { href: '/admin/wallet', label: 'Deposits & withdrawals', description: 'Confirm pending on-chain transactions' },
