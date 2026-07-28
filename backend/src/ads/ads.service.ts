@@ -1,8 +1,15 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
-import { AdSide, AdStatus, Currency } from '@prisma/client';
+import { AdSide, AdStatus, Currency, TradeStatus } from '@prisma/client';
 import { CreateAdDto } from './dto/create-ad.dto';
 import { KycService } from '../kyc/kyc.service';
+
+function tierFor(completedTrades: number): string | null {
+  if (completedTrades >= 50) return 'Top Merchant';
+  if (completedTrades >= 10) return 'Verified';
+  if (completedTrades >= 1) return 'Trader';
+  return null;
+}
 
 @Injectable()
 export class AdsService {
@@ -56,12 +63,40 @@ export class AdsService {
     return { rate: Math.round(median * 100) / 100, sampleSize: prices.length };
   }
 
-  findActive(side?: AdSide) {
-    return this.prisma.ad.findMany({
+  /** Trade count + completion rate for the ad's poster, computed across both their buy and sell trades. */
+  private async attachMerchantStats<T extends { user: { id: string } }>(ads: T[]): Promise<T[]> {
+    const userIds = [...new Set(ads.map((a) => a.user.id))];
+    const statsByUser = new Map<string, { completedTrades: number; completionRate: number | null; tier: string | null }>();
+
+    await Promise.all(
+      userIds.map(async (userId) => {
+        const [completed, finished] = await Promise.all([
+          this.prisma.trade.count({ where: { OR: [{ buyerId: userId }, { sellerId: userId }], status: TradeStatus.COMPLETED } }),
+          this.prisma.trade.count({
+            where: {
+              OR: [{ buyerId: userId }, { sellerId: userId }],
+              status: { in: [TradeStatus.COMPLETED, TradeStatus.CANCELLED, TradeStatus.DISPUTED] },
+            },
+          }),
+        ]);
+        statsByUser.set(userId, {
+          completedTrades: completed,
+          completionRate: finished > 0 ? Math.round((completed / finished) * 100) : null,
+          tier: tierFor(completed),
+        });
+      }),
+    );
+
+    return ads.map((ad) => ({ ...ad, user: { ...ad.user, ...statsByUser.get(ad.user.id) } }));
+  }
+
+  async findActive(side?: AdSide) {
+    const ads = await this.prisma.ad.findMany({
       where: { status: AdStatus.ACTIVE, ...(side ? { side } : {}) },
       include: { user: { select: { id: true, email: true, fullName: true, createdAt: true, lastSeenAt: true } } },
       orderBy: { createdAt: 'desc' },
     });
+    return this.attachMerchantStats(ads);
   }
 
   async findById(id: string) {
@@ -70,7 +105,8 @@ export class AdsService {
       include: { user: { select: { id: true, email: true, fullName: true, lastSeenAt: true } } },
     });
     if (!ad) throw new NotFoundException('Ad not found');
-    return ad;
+    const [withStats] = await this.attachMerchantStats([ad]);
+    return withStats;
   }
 
   async pause(userId: string, id: string) {
