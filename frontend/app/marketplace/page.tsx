@@ -13,7 +13,13 @@ type Ad = {
   maxLimitEtb: string;
   paymentMethods: string[];
   description?: string;
-  user: { fullName?: string; lastSeenAt?: string };
+  user: {
+    fullName?: string;
+    lastSeenAt?: string;
+    completedTrades?: number;
+    completionRate?: number | null;
+    tier?: string | null;
+  };
 };
 
 const ONLINE_WINDOW_MS = 5 * 60 * 1000;
@@ -31,6 +37,29 @@ function lastSeenLabel(lastSeenAt?: string) {
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return `${hours}h ago`;
   return `${Math.floor(hours / 24)}d ago`;
+}
+
+const TIER_COLOR: Record<string, string> = {
+  'Top Merchant': 'bg-gold/20 text-gold',
+  Verified: 'bg-teal/20 text-teal',
+  Trader: 'bg-white/10 text-muted',
+};
+
+function MerchantBadges({ user }: { user: Ad['user'] }) {
+  return (
+    <span className="flex items-center gap-1.5">
+      {user.tier && (
+        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${TIER_COLOR[user.tier] ?? 'bg-white/10 text-muted'}`}>
+          {user.tier}
+        </span>
+      )}
+      {user.completionRate !== null && user.completionRate !== undefined && (
+        <span className="text-[11px] text-muted">
+          {user.completionRate}% · {user.completedTrades} trades
+        </span>
+      )}
+    </span>
+  );
 }
 
 type Trade = {
@@ -56,6 +85,7 @@ export default function MarketplacePage() {
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [tab, setTab] = useState<'BUY' | 'SELL'>('BUY');
+  const [methodFilter, setMethodFilter] = useState<string[]>([]);
 
   async function loadAds() {
     try {
@@ -77,7 +107,13 @@ export default function MarketplacePage() {
 
   // "Buy" tab shows sellers' offers (side SELL) — that's who you'd buy USDT from.
   // "Sell" tab shows buyers' offers (side BUY) — that's who you'd sell USDT to.
-  const visibleAds = ads.filter((ad) => ad.side === (tab === 'BUY' ? 'SELL' : 'BUY'));
+  const visibleAds = ads
+    .filter((ad) => ad.side === (tab === 'BUY' ? 'SELL' : 'BUY'))
+    .filter((ad) => methodFilter.length === 0 || ad.paymentMethods.some((m) => methodFilter.includes(m)));
+
+  function toggleMethodFilter(label: string) {
+    setMethodFilter((prev) => (prev.includes(label) ? prev.filter((m) => m !== label) : [...prev, label]));
+  }
 
   return (
     <main className="min-h-screen bg-ink px-6 py-10 md:px-12">
@@ -113,6 +149,34 @@ export default function MarketplacePage() {
 
         {showForm && <CreateAdForm onCreated={() => { setShowForm(false); loadAds(); }} />}
 
+        <div className="flex items-center gap-2 mb-6 flex-wrap">
+          {PAYMENT_METHODS.map((method) => {
+            const active = methodFilter.includes(method.label);
+            return (
+              <button
+                key={method.label}
+                onClick={() => toggleMethodFilter(method.label)}
+                className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium border transition-colors ${
+                  active ? 'border-teal bg-teal/10 text-teal' : 'border-white/10 text-muted hover:border-white/25'
+                }`}
+              >
+                <span
+                  className="flex items-center justify-center h-4 w-4 rounded-full text-[8px] font-bold text-white"
+                  style={{ backgroundColor: method.color }}
+                >
+                  {method.initials}
+                </span>
+                {method.label}
+              </button>
+            );
+          })}
+          {methodFilter.length > 0 && (
+            <button onClick={() => setMethodFilter([])} className="text-xs text-muted hover:text-paper underline">
+              Clear filters
+            </button>
+          )}
+        </div>
+
         {error && <p className="text-red-400 text-sm mb-4">{error}</p>}
 
         <div className="space-y-3">
@@ -141,6 +205,9 @@ export default function MarketplacePage() {
                     <span className="text-[11px] text-muted">
                       {isOnline(ad.user.lastSeenAt) ? 'Online' : `Last seen ${lastSeenLabel(ad.user.lastSeenAt)}`}
                     </span>
+                  </div>
+                  <div className="mt-1">
+                    <MerchantBadges user={ad.user} />
                   </div>
                   <div className="flex items-center gap-1.5 mt-1.5">
                     {ad.paymentMethods.map((method) => (
