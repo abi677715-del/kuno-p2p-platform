@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../common/prisma.service';
 import { Currency, Role, User } from '@prisma/client';
+import { parseBid } from '../common/bid';
 
 const SALT_ROUNDS = 12;
 
@@ -74,12 +75,20 @@ export class UsersService {
     });
   }
 
+  /** Resolves a referral code (someone's trader ID) to their user id, or undefined if it doesn't match anyone. */
+  async resolveReferrer(refCode: string): Promise<string | undefined> {
+    const bidNumber = parseBid(refCode);
+    if (bidNumber === null) return undefined;
+    const referrer = await this.prisma.user.findUnique({ where: { bidNumber }, select: { id: true } });
+    return referrer?.id;
+  }
+
   /**
    * Creates a user plus their USDT and ETB wallets in a single transaction,
    * so a user can never exist without wallets to trade with. Also generates
    * an emailVerificationToken so the caller can send a confirmation email.
    */
-  async createWithWallets(email: string, passwordHash: string, fullName: string, phone: string) {
+  async createWithWallets(email: string, passwordHash: string, fullName: string, phone: string, referredById?: string) {
     return this.prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
         data: {
@@ -89,6 +98,7 @@ export class UsersService {
           phone,
           emailVerificationToken: randomUUID(),
           role: isBootstrapAdmin(email) ? Role.ADMIN : Role.USER,
+          referredById,
         },
       });
 
