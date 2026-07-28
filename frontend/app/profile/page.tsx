@@ -10,6 +10,7 @@ type Profile = {
   role: string;
   emailVerified: boolean;
   twoFaEnabled: boolean;
+  bid?: string;
 };
 
 export default function ProfilePage() {
@@ -80,6 +81,11 @@ export default function ProfilePage() {
         <div className="bg-surface border border-white/10 rounded-xl p-6 space-y-4">
           <h2 className="font-display font-medium text-paper">Account</h2>
           <div className="text-sm space-y-1">
+            {profile.bid && (
+              <p className="text-muted">
+                Your trader ID: <span className="text-gold font-mono">{profile.bid}</span>
+              </p>
+            )}
             <p className="text-muted">
               Email: <span className="text-paper">{profile.email}</span>{' '}
               <span className={profile.emailVerified ? 'text-teal' : 'text-gold'}>
