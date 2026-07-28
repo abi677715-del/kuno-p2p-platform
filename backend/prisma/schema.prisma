@@ -97,6 +97,7 @@ model User {
   status                 UserStatus @default(ACTIVE)
   twoFaEnabled           Boolean    @default(false)
   twoFaSecret            String?
+  isMerchant             Boolean    @default(false)
   emailVerified          Boolean    @default(false)
   emailVerificationToken String?    @unique
   passwordResetToken     String?    @unique
