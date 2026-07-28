@@ -18,21 +18,27 @@ export class AdsService {
     private kycService: KycService,
   ) {}
 
+  /**
+   * A SELL ad promises up to maxLimitEtb worth of USDT — refuse to post or
+   * reactivate it if the seller doesn't actually hold enough to cover that
+   * promise, so buyers never hit a surprise "insufficient balance" at trade time.
+   */
+  private async assertSellAdFunded(userId: string, priceEtb: string, maxLimitEtb: string) {
+    const wallet = await this.prisma.wallet.findUnique({ where: { userId_currency: { userId, currency: Currency.USDT } } });
+    const available = wallet ? parseFloat(wallet.balance.toString()) : 0;
+    const maxUsdtNeeded = parseFloat(maxLimitEtb) / parseFloat(priceEtb);
+    if (available < maxUsdtNeeded) {
+      throw new BadRequestException(
+        `You need at least ${maxUsdtNeeded.toFixed(2)} USDT available to cover this ad's max limit — your balance is ${available.toFixed(2)} USDT. Deposit more USDT or lower the max limit.`,
+      );
+    }
+  }
+
   async create(userId: string, dto: CreateAdDto) {
     await this.kycService.assertApproved(userId);
 
-    // A SELL ad promises up to maxLimitEtb worth of USDT — refuse to post it
-    // if the seller doesn't actually hold enough to cover that promise, so
-    // buyers never hit a surprise "insufficient balance" at trade time.
     if (dto.side === AdSide.SELL) {
-      const wallet = await this.prisma.wallet.findUnique({ where: { userId_currency: { userId, currency: Currency.USDT } } });
-      const available = wallet ? parseFloat(wallet.balance.toString()) : 0;
-      const maxUsdtNeeded = parseFloat(dto.maxLimitEtb) / parseFloat(dto.priceEtb);
-      if (available < maxUsdtNeeded) {
-        throw new BadRequestException(
-          `You need at least ${maxUsdtNeeded.toFixed(2)} USDT available to cover this ad's max limit — your balance is ${available.toFixed(2)} USDT. Deposit more USDT or lower the max limit.`,
-        );
-      }
+      await this.assertSellAdFunded(userId, dto.priceEtb, dto.maxLimitEtb);
     }
 
     return this.prisma.ad.create({
@@ -109,9 +115,22 @@ export class AdsService {
     return withStats;
   }
 
+  findMine(userId: string) {
+    return this.prisma.ad.findMany({ where: { userId }, orderBy: { createdAt: 'desc' } });
+  }
+
   async pause(userId: string, id: string) {
     const ad = await this.findById(id);
     if (ad.userId !== userId) throw new ForbiddenException('Not your ad');
     return this.prisma.ad.update({ where: { id }, data: { status: AdStatus.PAUSED } });
+  }
+
+  async reactivate(userId: string, id: string) {
+    const ad = await this.findById(id);
+    if (ad.userId !== userId) throw new ForbiddenException('Not your ad');
+    if (ad.side === AdSide.SELL) {
+      await this.assertSellAdFunded(userId, ad.priceEtb.toString(), ad.maxLimitEtb.toString());
+    }
+    return this.prisma.ad.update({ where: { id }, data: { status: AdStatus.ACTIVE } });
   }
 }
