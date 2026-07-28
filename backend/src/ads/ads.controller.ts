@@ -18,6 +18,12 @@ export class AdsController {
     return this.adsService.getIndicativeRate();
   }
 
+  @Get('mine')
+  @UseGuards(JwtAuthGuard)
+  findMine(@Req() req: any) {
+    return this.adsService.findMine(req.user.userId);
+  }
+
   @Get(':id')
   getOne(@Param('id') id: string) {
     return this.adsService.findById(id);
@@ -33,5 +39,11 @@ export class AdsController {
   @UseGuards(JwtAuthGuard)
   pause(@Req() req: any, @Param('id') id: string) {
     return this.adsService.pause(req.user.userId, id);
+  }
+
+  @Patch(':id/reactivate')
+  @UseGuards(JwtAuthGuard)
+  reactivate(@Req() req: any, @Param('id') id: string) {
+    return this.adsService.reactivate(req.user.userId, id);
   }
 }
