@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/api';
 import { PAYMENT_METHODS, colorFor, initialsFor } from '@/lib/paymentMethods';
+import { displayName } from '@/lib/displayName';
 
 type Ad = {
   id: string;
@@ -12,7 +13,7 @@ type Ad = {
   maxLimitEtb: string;
   paymentMethods: string[];
   description?: string;
-  user: { email: string; lastSeenAt?: string };
+  user: { fullName?: string; lastSeenAt?: string };
 };
 
 const ONLINE_WINDOW_MS = 5 * 60 * 1000;
@@ -37,8 +38,8 @@ type Trade = {
   status: string;
   amountUsdt: string;
   amountEtb: string;
-  buyer: { email: string };
-  seller: { email: string };
+  buyer: { fullName?: string };
+  seller: { fullName?: string };
 };
 
 const ENDED_STATUSES = ['COMPLETED', 'DISPUTED', 'CANCELLED'];
@@ -136,7 +137,7 @@ export default function MarketplacePage() {
                         isOnline(ad.user.lastSeenAt) ? 'bg-teal' : 'bg-muted'
                       }`}
                     />
-                    <p className="text-paper font-medium">{ad.user.email}</p>
+                    <p className="text-paper font-medium">{displayName(ad.user)}</p>
                     <span className="text-[11px] text-muted">
                       {isOnline(ad.user.lastSeenAt) ? 'Online' : `Last seen ${lastSeenLabel(ad.user.lastSeenAt)}`}
                     </span>
@@ -190,7 +191,7 @@ export default function MarketplacePage() {
                     </span>
                   </div>
                   <p className="text-xs text-muted mt-1">
-                    {t.buyer.email} (buyer) ↔ {t.seller.email} (seller)
+                    {displayName(t.buyer)} (buyer) ↔ {displayName(t.seller)} (seller)
                   </p>
                 </a>
               ))}
