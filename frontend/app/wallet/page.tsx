@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/api';
+import { formatAmount } from '@/lib/format';
 
 export default function WalletPage() {
   const [wallets, setWallets] = useState<any[]>([]);
@@ -40,9 +41,9 @@ export default function WalletPage() {
             .map((w) => (
               <div key={w.id} className="bg-surface border border-white/10 rounded-xl p-5 col-span-2 sm:col-span-1">
                 <p className="text-xs text-muted mb-1">{w.currency}</p>
-                <p className="font-mono text-xl text-paper">{w.balance}</p>
+                <p className="font-mono text-xl text-paper">{formatAmount(w.balance, 4)}</p>
                 {parseFloat(w.lockedBalance) > 0 && (
-                  <p className="text-xs text-gold mt-1">{w.lockedBalance} in escrow</p>
+                  <p className="text-xs text-gold mt-1">{formatAmount(w.lockedBalance, 4)} in escrow</p>
                 )}
               </div>
             ))}
@@ -60,7 +61,7 @@ export default function WalletPage() {
                 <span className="text-muted">
                   {tx.type} · {new Date(tx.createdAt).toLocaleDateString()}
                 </span>
-                <span className="font-mono text-paper">{tx.amount}</span>
+                <span className="font-mono text-paper">{formatAmount(tx.amount, 4)}</span>
                 <span
                   className={
                     tx.status === 'CONFIRMED' ? 'text-teal text-xs' : tx.status === 'FAILED' ? 'text-red-400 text-xs' : 'text-gold text-xs'
