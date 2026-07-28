@@ -9,6 +9,9 @@ type Ad = {
   id: string;
   side: 'BUY' | 'SELL';
   priceEtb: string;
+  effectivePriceEtb?: string;
+  pricingMode?: 'FIXED' | 'FLOATING';
+  marginPercent?: string | null;
   minLimitEtb: string;
   maxLimitEtb: string;
   paymentMethods: string[];
@@ -20,6 +23,7 @@ type Ad = {
     completionRate?: number | null;
     tier?: string | null;
     isMerchant?: boolean;
+    avgReleaseMinutes?: number | null;
   };
 };
 
@@ -63,6 +67,9 @@ function MerchantBadges({ user }: { user: Ad['user'] }) {
         <span className="text-[11px] text-muted">
           {user.completionRate}% · {user.completedTrades} trades
         </span>
+      )}
+      {user.avgReleaseMinutes !== null && user.avgReleaseMinutes !== undefined && (
+        <span className="text-[11px] text-muted">· avg release {user.avgReleaseMinutes}m</span>
       )}
     </span>
   );
@@ -235,7 +242,13 @@ export default function MarketplacePage() {
                   {ad.description && <p className="text-xs text-muted mt-1.5 max-w-sm">{ad.description}</p>}
                 </div>
                 <div className="text-right">
-                  <p className="font-mono text-lg text-paper">{ad.priceEtb} ETB</p>
+                  <p className="font-mono text-lg text-paper">{ad.effectivePriceEtb ?? ad.priceEtb} ETB</p>
+                  {ad.pricingMode === 'FLOATING' && (
+                    <p className="text-[10px] text-teal">
+                      market {Number(ad.marginPercent) >= 0 ? '+' : ''}
+                      {ad.marginPercent}%
+                    </p>
+                  )}
                   <p className="text-xs text-muted">
                     Limits {ad.minLimitEtb}–{ad.maxLimitEtb} ETB
                   </p>
@@ -283,7 +296,9 @@ export default function MarketplacePage() {
 
 function CreateAdForm({ onCreated }: { onCreated: () => void }) {
   const [side, setSide] = useState<'BUY' | 'SELL'>('SELL');
+  const [pricingMode, setPricingMode] = useState<'FIXED' | 'FLOATING'>('FIXED');
   const [priceEtb, setPriceEtb] = useState('123.40');
+  const [marginPercent, setMarginPercent] = useState('0');
   const [minLimitEtb, setMinLimitEtb] = useState('500');
   const [maxLimitEtb, setMaxLimitEtb] = useState('50000');
   const [paymentMethods, setPaymentMethods] = useState<string[]>(['Telebirr', 'CBE']);
@@ -315,9 +330,23 @@ function CreateAdForm({ onCreated }: { onCreated: () => void }) {
       return;
     }
     try {
+      let effectivePrice = priceEtb;
+      if (pricingMode === 'FLOATING') {
+        const { rate } = await apiFetch('/ads/rate');
+        effectivePrice = (rate * (1 + parseFloat(marginPercent || '0') / 100)).toFixed(4);
+      }
       await apiFetch('/ads', {
         method: 'POST',
-        body: JSON.stringify({ side, priceEtb, minLimitEtb, maxLimitEtb, paymentMethods, description: description || undefined }),
+        body: JSON.stringify({
+          side,
+          priceEtb: effectivePrice,
+          minLimitEtb,
+          maxLimitEtb,
+          paymentMethods,
+          description: description || undefined,
+          pricingMode,
+          marginPercent: pricingMode === 'FLOATING' ? marginPercent : undefined,
+        }),
       });
       if (saveAsDefault) {
         await apiFetch('/users/me', { method: 'PATCH', body: JSON.stringify({ defaultPaymentMethods: paymentMethods }) }).catch(() => {});
@@ -347,7 +376,32 @@ function CreateAdForm({ onCreated }: { onCreated: () => void }) {
         </button>
       </div>
 
-      <Field label="Price per USDT (ETB)" value={priceEtb} onChange={setPriceEtb} />
+      <div className="flex gap-3">
+        <button
+          type="button"
+          onClick={() => setPricingMode('FIXED')}
+          className={`flex-1 rounded-md py-2 text-xs font-medium ${pricingMode === 'FIXED' ? 'bg-surfaceRaised text-paper border border-teal' : 'bg-surfaceRaised text-muted border border-transparent'}`}
+        >
+          Fixed price
+        </button>
+        <button
+          type="button"
+          onClick={() => setPricingMode('FLOATING')}
+          className={`flex-1 rounded-md py-2 text-xs font-medium ${pricingMode === 'FLOATING' ? 'bg-surfaceRaised text-paper border border-teal' : 'bg-surfaceRaised text-muted border border-transparent'}`}
+        >
+          Floating (track market rate)
+        </button>
+      </div>
+
+      {pricingMode === 'FIXED' ? (
+        <Field label="Price per USDT (ETB)" value={priceEtb} onChange={setPriceEtb} />
+      ) : (
+        <Field
+          label="Margin vs. market rate (%) — e.g. 2 for 2% above, -1 for 1% below"
+          value={marginPercent}
+          onChange={setMarginPercent}
+        />
+      )}
       <div className="grid grid-cols-2 gap-4">
         <Field label="Min limit (ETB)" value={minLimitEtb} onChange={setMinLimitEtb} />
         <Field label="Max limit (ETB)" value={maxLimitEtb} onChange={setMaxLimitEtb} />
