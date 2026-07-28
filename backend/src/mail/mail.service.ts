@@ -43,6 +43,19 @@ export class MailService {
     );
   }
 
+  sendPasswordResetEmail(to: string, token: string) {
+    const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
+    return this.send(
+      to,
+      `Reset your ${APP_NAME} password`,
+      `
+        <p>We received a request to reset your ${APP_NAME} password.</p>
+        <p><a href="${resetUrl}">${resetUrl}</a></p>
+        <p>This link expires in 1 hour. If you didn't request this, you can safely ignore this email.</p>
+      `,
+    );
+  }
+
   sendTradeUpdateEmail(to: string, subject: string, message: string, tradeId: string) {
     const tradeUrl = `${process.env.FRONTEND_URL}/trades/${tradeId}`;
     return this.send(
