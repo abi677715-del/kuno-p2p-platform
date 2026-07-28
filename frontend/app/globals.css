@@ -10,20 +10,16 @@
 
 body {
   background-color: #0f1420;
-  background-image:
-    radial-gradient(1200px circle at 0% 0%, rgba(232, 163, 61, 0.10), transparent 55%),
-    radial-gradient(1200px circle at 100% 100%, rgba(11, 132, 87, 0.16), transparent 55%);
+  background-image: linear-gradient(135deg, rgba(232, 163, 61, 0.34) 0%, #0f1420 42%, #0f1420 58%, rgba(11, 132, 87, 0.38) 100%);
   background-attachment: fixed;
   color: #f2f1ec;
 }
 
 /* Every page's <main> paints its own bg-ink over the body, so the logo's
-   gold-to-teal wash is applied here too, keeping it visible everywhere. */
+   gold-to-teal diagonal is repeated here too, keeping it visible everywhere. */
 .bg-ink {
   background-color: #0f1420;
-  background-image:
-    radial-gradient(1200px circle at 0% 0%, rgba(232, 163, 61, 0.10), transparent 55%),
-    radial-gradient(1200px circle at 100% 100%, rgba(11, 132, 87, 0.16), transparent 55%);
+  background-image: linear-gradient(135deg, rgba(232, 163, 61, 0.34) 0%, #0f1420 42%, #0f1420 58%, rgba(11, 132, 87, 0.38) 100%);
   background-attachment: fixed;
 }
 
