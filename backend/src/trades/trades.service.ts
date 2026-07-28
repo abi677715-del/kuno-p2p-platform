@@ -1,4 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { authenticator } from 'otplib';
 import { PrismaService } from '../common/prisma.service';
 import { WalletService } from '../wallet/wallet.service';
 import { AdsService } from '../ads/ads.service';
@@ -8,6 +9,7 @@ import { AdSide, Currency, DisputeStatus, EscrowStatus, TradeStatus } from '@pri
 import { CreateTradeDto } from './dto/create-trade.dto';
 import { DisputeTradeDto } from './dto/dispute-trade.dto';
 import { SendMessageDto } from './dto/send-message.dto';
+import { ConfirmPaymentDto } from './dto/confirm-payment.dto';
 import { ResolveDisputeDto, DisputeOutcome } from './dto/resolve-dispute.dto';
 
 @Injectable()
@@ -130,12 +132,24 @@ export class TradesService {
     return updated;
   }
 
-  /** Seller confirms receipt of ETB — this releases escrowed USDT to the buyer. */
-  async confirmPayment(userId: string, tradeId: string) {
+  /**
+   * Seller confirms receipt of ETB — this releases escrowed USDT to the
+   * buyer. If the seller has 2FA enabled, a valid authenticator code is
+   * required — releasing escrow is irreversible, so it gets the same
+   * confirmation step as a login.
+   */
+  async confirmPayment(userId: string, tradeId: string, dto?: ConfirmPaymentDto) {
     const trade = await this.findById(tradeId);
     if (trade.sellerId !== userId) throw new ForbiddenException('Only the seller can confirm payment');
     if (trade.status !== TradeStatus.PAID) {
       throw new BadRequestException(`Cannot confirm from status ${trade.status}`);
+    }
+
+    const seller = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (seller?.twoFaEnabled) {
+      if (!dto?.code || !seller.twoFaSecret || !authenticator.verify({ token: dto.code, secret: seller.twoFaSecret })) {
+        throw new BadRequestException('Enter a valid code from your authenticator app to release the funds');
+      }
     }
 
     const releaseResult = await this.walletService.releaseFunds(
