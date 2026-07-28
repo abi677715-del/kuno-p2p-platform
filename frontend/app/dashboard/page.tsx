@@ -124,7 +124,7 @@ export default function DashboardPage() {
           <div className="relative">
             <button
               onClick={() => setMenuOpen((v) => !v)}
-              className="h-10 w-10 rounded-full overflow-hidden border border-white/15 bg-gold flex items-center justify-center text-ink font-bold hover:border-white/30 transition-colors"
+                            className="h-10 w-10 rounded-full overflow-hidden border border-white/15 bg-gradient-to-br from-gold to-teal flex items-center justify-center text-ink font-bold hover:border-white/30 transition-colors"
             >
               {profile?.avatar ? (
                 <img src={profile.avatar} alt="Profile" className="h-full w-full object-cover" />
