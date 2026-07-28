@@ -109,7 +109,7 @@ export default function ProfilePage() {
             <Field label="Phone" value={phone} onChange={setPhone} />
             {profileError && <p className="text-red-400 text-sm">{profileError}</p>}
             {profileSaved && <p className="text-teal text-sm">Profile updated.</p>}
-            <button type="submit" className="rounded-md bg-gold px-4 py-2 text-ink font-medium hover:bg-gold/90 transition-colors">
+            <button type="submit" className="rounded-md bg-gradient-to-br from-gold to-teal px-4 py-2 text-ink font-medium hover:opacity-90 transition-opacity">
               Save changes
             </button>
           </form>
@@ -123,7 +123,7 @@ export default function ProfilePage() {
             <Field label="Confirm new password" value={confirmPassword} onChange={setConfirmPassword} type="password" />
             {passwordError && <p className="text-red-400 text-sm">{passwordError}</p>}
             {passwordSaved && <p className="text-teal text-sm">Password changed.</p>}
-            <button type="submit" className="rounded-md bg-gold px-4 py-2 text-ink font-medium hover:bg-gold/90 transition-colors">
+            <button type="submit" className="rounded-md bg-gradient-to-br from-gold to-teal px-4 py-2 text-ink font-medium hover:opacity-90 transition-opacity">
               Update password
             </button>
           </form>
@@ -149,7 +149,7 @@ export default function ProfilePage() {
                   setLinkCopied(true);
                   setTimeout(() => setLinkCopied(false), 2000);
                 }}
-                className="rounded-md bg-gold px-3 py-2 text-ink text-sm font-medium shrink-0"
+                className="rounded-md bg-gradient-to-br from-gold to-teal px-3 py-2 text-ink text-sm font-medium shrink-0 hover:opacity-90 transition-opacity"
               >
                 {linkCopied ? 'Copied!' : 'Copy'}
               </button>
