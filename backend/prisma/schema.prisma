@@ -87,6 +87,7 @@ enum SupportTicketStatus {
 
 model User {
   id                     String     @id @default(uuid())
+  bidNumber              Int        @unique @default(autoincrement())
   fullName               String?
   avatar                 String?    @db.Text
   email                  String     @unique
