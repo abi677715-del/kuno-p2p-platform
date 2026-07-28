@@ -70,12 +70,9 @@ export class UsersService {
         },
       });
 
-      await tx.wallet.createMany({
-        data: [
-          { userId: user.id, currency: Currency.USDT },
-          { userId: user.id, currency: Currency.ETB },
-        ],
-      });
+      // Only USDT is ever escrowed on-platform — ETB moves directly between
+      // traders via bank/mobile money, so there's no fiat wallet to track.
+      await tx.wallet.create({ data: { userId: user.id, currency: Currency.USDT } });
 
       return user;
     });
