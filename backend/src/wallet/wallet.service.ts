@@ -292,4 +292,17 @@ export class WalletService {
       });
     });
   }
+
+  /** Credits a referrer's share of the platform fee when someone they referred completes a trade. */
+  async creditReferralBonus(userId: string, currency: Currency, amount: string, referenceId: string) {
+    if (parseFloat(amount) <= 0) return;
+    const wallet = await this.prisma.wallet.findUnique({ where: { userId_currency: { userId, currency } } });
+    if (!wallet) return;
+    await this.prisma.$transaction([
+      this.prisma.wallet.update({ where: { id: wallet.id }, data: { balance: { increment: amount } } }),
+      this.prisma.walletTransaction.create({
+        data: { walletId: wallet.id, type: TxType.REFERRAL, amount, referenceId, status: TxStatus.CONFIRMED },
+      }),
+    ]);
+  }
 }
