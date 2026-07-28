@@ -14,6 +14,40 @@ const STATUS_COPY: Record<string, string> = {
   CANCELLED: 'Trade cancelled',
 };
 
+const TIMEOUT_MINUTES = 15;
+
+function TradeCountdown({ trade }: { trade: any }) {
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  let deadline: number | null = null;
+  let label = '';
+  if (trade.status === 'ESCROW_LOCKED') {
+    deadline = new Date(trade.createdAt).getTime() + TIMEOUT_MINUTES * 60_000;
+    label = 'Auto-cancels in';
+  } else if (trade.status === 'PAID' && trade.paidAt) {
+    deadline = new Date(trade.paidAt).getTime() + TIMEOUT_MINUTES * 60_000;
+    label = 'Escalates to dispute in';
+  }
+  if (deadline === null) return null;
+
+  const remainingMs = Math.max(0, deadline - now);
+  const minutes = Math.floor(remainingMs / 60_000);
+  const seconds = Math.floor((remainingMs % 60_000) / 1000);
+
+  return (
+    <p className="text-xs text-gold font-mono mt-1">
+      {remainingMs > 0
+        ? `${label} ${minutes}:${seconds.toString().padStart(2, '0')}`
+        : 'Processing timeout…'}
+    </p>
+  );
+}
+
 function getUserId(): string | null {
   const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
   if (!token) return null;
@@ -148,6 +182,7 @@ export default function TradeRoomPage() {
             </span>
           </div>
           <p className="text-sm text-muted mb-1">{STATUS_COPY[trade.status] ?? ''}</p>
+          <TradeCountdown trade={trade} />
           <p className="text-xs text-muted mb-4">
             A 2% platform fee applies on completion — the buyer receives ≈{' '}
             {(parseFloat(trade.amountUsdt) * 0.98).toFixed(2)} USDT after the fee.
