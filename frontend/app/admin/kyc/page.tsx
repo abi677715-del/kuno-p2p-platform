@@ -51,7 +51,7 @@ export default function AdminKycPage() {
                 <div className="flex gap-2">
                   <button
                     onClick={() => approve(record.id)}
-                    className="rounded-md bg-teal px-3 py-1.5 text-ink text-sm font-medium"
+                    className="rounded-md bg-gradient-to-br from-gold to-teal px-3 py-1.5 text-ink text-sm font-medium hover:opacity-90 transition-opacity"
                   >
                     Approve
                   </button>
