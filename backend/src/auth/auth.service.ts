@@ -5,6 +5,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { randomUUID } from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { authenticator } from 'otplib';
 import * as QRCode from 'qrcode';
@@ -15,6 +16,10 @@ import { LoginDto } from './dto/login.dto';
 import { EnableTwoFaDto } from './dto/enable-two-fa.dto';
 import { TwoFaCodeDto } from './dto/two-fa-code.dto';
 import { VerifyTwoFaLoginDto } from './dto/verify-two-fa-login.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
+
+const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000;
 
 const SALT_ROUNDS = 12;
 const APP_NAME = 'Birrly';
@@ -47,6 +52,30 @@ export class AuthService {
     const user = await this.usersService.verifyEmail(token);
     if (!user) throw new BadRequestException('Invalid or expired verification link');
     return { verified: true };
+  }
+
+  /**
+   * Always responds the same way whether or not the email has an account —
+   * otherwise this endpoint could be used to check which emails are registered.
+   */
+  async forgotPassword(dto: ForgotPasswordDto) {
+    const user = await this.usersService.findByEmail(dto.email);
+    if (user) {
+      const token = randomUUID();
+      const expires = new Date(Date.now() + PASSWORD_RESET_TTL_MS);
+      await this.usersService.setPasswordResetToken(user.id, token, expires);
+      await this.mailService.sendPasswordResetEmail(user.email, token);
+    }
+    return { sent: true };
+  }
+
+  async resetPassword(dto: ResetPasswordDto) {
+    const user = await this.usersService.findByPasswordResetToken(dto.token);
+    if (!user || !user.passwordResetExpires || user.passwordResetExpires < new Date()) {
+      throw new BadRequestException('This reset link is invalid or has expired');
+    }
+    await this.usersService.resetPassword(user.id, dto.newPassword);
+    return { reset: true };
   }
 
   /**
@@ -119,7 +148,7 @@ export class AuthService {
   async enableTwoFa(userId: string, dto: EnableTwoFaDto) {
     const isValid = authenticator.verify({ token: dto.code, secret: dto.secret });
     if (!isValid) {
-      throw new BadRequestException('That code doesn\u2019t match вЂ” check your authenticator app and try again');
+      throw new BadRequestException('That code doesn\u2019t match — check your authenticator app and try again');
     }
     await this.usersService.setTwoFaSecret(userId, dto.secret);
     await this.usersService.setTwoFaEnabled(userId, true);
