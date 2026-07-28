@@ -77,7 +77,10 @@ export class TradesService {
   listMine(userId: string) {
     return this.prisma.trade.findMany({
       where: { OR: [{ buyerId: userId }, { sellerId: userId }] },
-      include: { buyer: { select: { email: true } }, seller: { select: { email: true } } },
+      include: {
+        buyer: { select: { id: true, email: true, fullName: true } },
+        seller: { select: { id: true, email: true, fullName: true } },
+      },
       orderBy: { createdAt: 'desc' },
     });
   }
