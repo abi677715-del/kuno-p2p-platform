@@ -134,7 +134,7 @@ function DepositCard({ depositInfo, onSubmitted }: { depositInfo: any; onSubmitt
         />
         {error && <p className="text-red-400 text-sm">{error}</p>}
         {success && <p className="text-teal text-sm">Submitted — pending confirmation.</p>}
-        <button type="submit" className="w-full rounded-md bg-gold py-2 text-ink font-medium">
+        <button type="submit" className="w-full rounded-md bg-gradient-to-br from-gold to-teal py-2 text-ink font-medium hover:opacity-90 transition-opacity">
           Submit deposit
         </button>
       </form>
