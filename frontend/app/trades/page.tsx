@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/api';
 import { displayName } from '@/lib/displayName';
+import { formatAmount } from '@/lib/format';
 
 const STATUS_COLOR: Record<string, string> = {
   PENDING: 'text-muted',
@@ -61,7 +62,7 @@ export default function TradesListPage() {
                           {t.status}
                         </span>
                         <span className="font-mono text-paper">
-                          {t.amountUsdt} USDT ≈ {t.amountEtb} ETB
+                          {formatAmount(t.amountUsdt, 4)} USDT ≈ {formatAmount(t.amountEtb)} ETB
                         </span>
                       </div>
                       <p className="text-xs text-muted">
