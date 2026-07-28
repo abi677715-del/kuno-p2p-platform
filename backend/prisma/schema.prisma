@@ -99,6 +99,8 @@ model User {
   twoFaSecret            String?
   emailVerified          Boolean    @default(false)
   emailVerificationToken String?    @unique
+  passwordResetToken     String?    @unique
+  passwordResetExpires   DateTime?
   createdAt              DateTime   @default(now())
   lastSeenAt             DateTime   @default(now())
   defaultPaymentMethods  String[]   @default([])
