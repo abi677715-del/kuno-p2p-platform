@@ -1,10 +1,21 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
 export default function SignupPage() {
+  return (
+    <Suspense fallback={null}>
+      <SignupContent />
+    </Suspense>
+  );
+}
+
+function SignupContent() {
+  const params = useSearchParams();
+  const ref = params.get('ref');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -20,7 +31,7 @@ export default function SignupPage() {
       const res = await fetch(`${API_URL}/auth/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fullName, email, phone, password }),
+        body: JSON.stringify({ fullName, email, phone, password, ref: ref || undefined }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -39,7 +50,12 @@ export default function SignupPage() {
   return (
     <main className="min-h-screen flex items-center justify-center bg-ink px-6">
       <form onSubmit={handleSubmit} className="w-full max-w-sm bg-surface border border-white/10 rounded-2xl p-8">
-        <h1 className="font-display font-bold text-2xl text-paper mb-6">Create your account</h1>
+        <h1 className="font-display font-bold text-2xl text-paper mb-2">Create your account</h1>
+        {ref && (
+          <p className="text-xs text-teal mb-4">
+            Invited by trader <span className="font-mono">{ref.toUpperCase()}</span>
+          </p>
+        )}
 
         <label className="text-sm text-muted block mb-1">Full name</label>
         <input
