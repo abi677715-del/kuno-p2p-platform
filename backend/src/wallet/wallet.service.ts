@@ -209,13 +209,31 @@ export class WalletService {
   }
 
   /**
-   * Releases locked funds to the counterparty on trade completion, minus the
-   * platform's commission (PLATFORM_FEE_PERCENT, default 2%), which goes to
-   * the platform's own wallet instead of the buyer. Returns the split so
-   * callers can show/notify the exact amounts.
+   * Merchants (accounts an admin has flagged as isMerchant) trade on their
+   * own ads at a discounted commission — MERCHANT_FEE_PERCENT, default 1% —
+   * instead of the standard PLATFORM_FEE_PERCENT, default 2%.
    */
-  async releaseFunds(fromUserId: string, toUserId: string, currency: Currency, amount: string, referenceId: string) {
-    const feePercent = parseFloat(process.env.PLATFORM_FEE_PERCENT ?? '2') / 100;
+  getFeePercent(isMerchant: boolean): number {
+    return isMerchant
+      ? parseFloat(process.env.MERCHANT_FEE_PERCENT ?? '1')
+      : parseFloat(process.env.PLATFORM_FEE_PERCENT ?? '2');
+  }
+
+  /**
+   * Releases locked funds to the counterparty on trade completion, minus the
+   * platform's commission, which goes to the platform's own wallet instead
+   * of the buyer. Returns the split so callers can show/notify the exact
+   * amounts. feePercentValue is a whole-number percent (e.g. 2 for 2%).
+   */
+  async releaseFunds(
+    fromUserId: string,
+    toUserId: string,
+    currency: Currency,
+    amount: string,
+    referenceId: string,
+    feePercentValue: number,
+  ) {
+    const feePercent = feePercentValue / 100;
 
     return this.prisma.$transaction(async (tx) => {
       const fromWallet = await tx.wallet.findUnique({ where: { userId_currency: { userId: fromUserId, currency } } });
