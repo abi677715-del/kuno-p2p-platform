@@ -24,6 +24,28 @@ function getUserId(): string | null {
   }
 }
 
+function resizeImage(file: File, maxSize = 1024): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = reject;
+      img.onload = () => {
+        const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width * scale;
+        canvas.height = img.height * scale;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', 0.85));
+      };
+      img.src = reader.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function TradeRoomPage() {
   const params = useParams();
   const tradeId = params.id as string;
@@ -31,9 +53,12 @@ export default function TradeRoomPage() {
   const [messages, setMessages] = useState<any[]>([]);
   const [text, setText] = useState('');
   const [error, setError] = useState('');
+  const [attachment, setAttachment] = useState<string | null>(null);
+  const [attachError, setAttachError] = useState('');
   const bottomRef = useRef<HTMLDivElement>(null);
   const socketRef = useRef<Socket | null>(null);
   const userId = useRef<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   async function refreshTrade() {
     try {
@@ -92,9 +117,22 @@ export default function TradeRoomPage() {
 
   function sendMessage(e: React.FormEvent) {
     e.preventDefault();
-    if (!text.trim() || !userId.current || !socketRef.current) return;
-    socketRef.current.emit('sendMessage', { tradeId, message: text });
+    if ((!text.trim() && !attachment) || !userId.current || !socketRef.current) return;
+    socketRef.current.emit('sendMessage', { tradeId, message: text, attachmentUrl: attachment ?? undefined });
     setText('');
+    setAttachment(null);
+  }
+
+  async function handleFilePick(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setAttachError('');
+    try {
+      setAttachment(await resizeImage(file));
+    } catch {
+      setAttachError('Could not attach that file — try a photo instead.');
+    }
   }
 
   if (!trade) return <main className="min-h-screen bg-ink px-6 py-10 text-muted">{error || 'Loading…'}</main>;
@@ -153,12 +191,44 @@ export default function TradeRoomPage() {
                 <span className="text-muted font-mono text-xs">
                   {new Date(m.createdAt).toLocaleTimeString()}
                 </span>
-                <p className="text-paper">{m.message}</p>
+                {m.message && <p className="text-paper">{m.message}</p>}
+                {m.attachmentUrl && (
+                  <a href={m.attachmentUrl} target="_blank" rel="noopener noreferrer">
+                    <img
+                      src={m.attachmentUrl}
+                      alt="Attachment"
+                      className="mt-1 max-h-48 rounded-md border border-white/10"
+                    />
+                  </a>
+                )}
               </div>
             ))}
             <div ref={bottomRef} />
           </div>
+          {attachError && <p className="text-red-400 text-xs mt-2">{attachError}</p>}
+          {attachment && (
+            <div className="flex items-center gap-2 mt-3 bg-surfaceRaised rounded-md p-2">
+              <img src={attachment} alt="Pending attachment" className="h-12 w-12 object-cover rounded" />
+              <span className="text-xs text-muted flex-1">Attached — will send with your next message</span>
+              <button
+                type="button"
+                onClick={() => setAttachment(null)}
+                className="text-xs text-red-400 font-medium"
+              >
+                Remove
+              </button>
+            </div>
+          )}
           <form onSubmit={sendMessage} className="flex gap-2 mt-4">
+            <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFilePick} className="hidden" />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="rounded-md border border-white/15 px-3 py-2 text-paper text-sm font-medium"
+              title="Attach a photo"
+            >
+              📎
+            </button>
             <input
               value={text}
               onChange={(e) => setText(e.target.value)}
