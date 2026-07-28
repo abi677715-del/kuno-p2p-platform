@@ -16,24 +16,53 @@ const STATUS_COLOR: Record<string, string> = {
 
 // Active trades first (most likely to need action), then disputes, then
 // finished trades — cancelled last since there's nothing left to do on them.
-const STATUS_GROUPS: { status: string; label: string }[] = [
+// Groups collapsed by default hold trades with no further action needed;
+// they stay tucked away until the trader clicks to expand them.
+const STATUS_GROUPS: { status: string; label: string; collapsedByDefault?: boolean }[] = [
   { status: 'PENDING', label: 'Pending' },
   { status: 'ESCROW_LOCKED', label: 'Escrow locked' },
   { status: 'PAID', label: 'Awaiting confirmation' },
   { status: 'DISPUTED', label: 'Disputed' },
-  { status: 'COMPLETED', label: 'Completed' },
-  { status: 'CANCELLED', label: 'Cancelled' },
+  { status: 'COMPLETED', label: 'Completed', collapsedByDefault: true },
+  { status: 'CANCELLED', label: 'Cancelled', collapsedByDefault: true },
 ];
 
 export default function TradesListPage() {
   const [trades, setTrades] = useState<any[]>([]);
   const [error, setError] = useState('');
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(STATUS_GROUPS.filter((g) => g.collapsedByDefault).map((g) => [g.status, true]))
+  );
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
 
-  useEffect(() => {
+  function load() {
     apiFetch('/trades')
       .then(setTrades)
       .catch((err) => setError(err.message));
+  }
+
+  useEffect(() => {
+    load();
   }, []);
+
+  function toggleGroup(status: string) {
+    setCollapsed((prev) => ({ ...prev, [status]: !prev[status] }));
+  }
+
+  async function quickCancel(e: React.MouseEvent, tradeId: string) {
+    e.preventDefault();
+    e.stopPropagation();
+    setCancellingId(tradeId);
+    setError('');
+    try {
+      await apiFetch(`/trades/${tradeId}/cancel`, { method: 'POST' });
+      load();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setCancellingId(null);
+    }
+  }
 
   return (
     <main className="min-h-screen bg-ink px-6 py-10 md:px-12">
@@ -45,32 +74,50 @@ export default function TradesListPage() {
           {STATUS_GROUPS.map(({ status, label }) => {
             const group = trades.filter((t) => t.status === status);
             if (group.length === 0) return null;
+            const isCollapsed = !!collapsed[status];
             return (
               <div key={status}>
-                <h2 className="text-xs font-mono uppercase tracking-wide text-muted mb-3">
-                  {label} ({group.length})
-                </h2>
-                <div className="space-y-3">
-                  {group.map((t) => (
-                    <a
-                      key={t.id}
-                      href={`/trades/${t.id}`}
-                      className="block bg-surface border border-white/10 rounded-xl p-5 hover:border-white/25 transition-colors"
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className={`text-xs font-mono uppercase tracking-wide ${STATUS_COLOR[t.status] ?? 'text-muted'}`}>
-                          {t.status}
-                        </span>
-                        <span className="font-mono text-paper">
-                          {formatAmount(t.amountUsdt, 4)} USDT ≈ {formatAmount(t.amountEtb)} ETB
-                        </span>
-                      </div>
-                      <p className="text-xs text-muted">
-                        {displayName(t.buyer)} (buyer) ↔ {displayName(t.seller)} (seller)
-                      </p>
-                    </a>
-                  ))}
-                </div>
+                <button
+                  onClick={() => toggleGroup(status)}
+                  className="w-full flex items-center justify-between mb-3 text-left"
+                >
+                  <h2 className="text-xs font-mono uppercase tracking-wide text-muted">
+                    {label} ({group.length})
+                  </h2>
+                  <span className="text-muted text-xs">{isCollapsed ? 'Show ▾' : 'Hide ▴'}</span>
+                </button>
+                {!isCollapsed && (
+                  <div className="space-y-3">
+                    {group.map((t) => (
+                      <a
+                        key={t.id}
+                        href={`/trades/${t.id}`}
+                        className="block bg-surface border border-white/10 rounded-xl p-5 hover:border-white/25 transition-colors"
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <span className={`text-xs font-mono uppercase tracking-wide ${STATUS_COLOR[t.status] ?? 'text-muted'}`}>
+                            {t.status}
+                          </span>
+                          <span className="font-mono text-paper">
+                            {formatAmount(t.amountUsdt, 4)} USDT ≈ {formatAmount(t.amountEtb)} ETB
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted">
+                          {displayName(t.buyer)} (buyer) ↔ {displayName(t.seller)} (seller)
+                        </p>
+                        {['PENDING', 'ESCROW_LOCKED'].includes(t.status) && (
+                          <button
+                            onClick={(e) => quickCancel(e, t.id)}
+                            disabled={cancellingId === t.id}
+                            className="mt-2 text-xs text-muted hover:text-red-400 disabled:opacity-50"
+                          >
+                            {cancellingId === t.id ? 'Cancelling…' : 'Cancel trade'}
+                          </button>
+                        )}
+                      </a>
+                    ))}
+                  </div>
+                )}
               </div>
             );
           })}
