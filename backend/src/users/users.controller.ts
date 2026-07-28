@@ -1,9 +1,13 @@
 import { Body, Controller, Get, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../common/roles.guard';
+import { Roles } from '../common/roles.decorator';
+import { Role } from '@prisma/client';
 import { UsersService } from './users.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { UpdateAvatarDto } from './dto/update-avatar.dto';
+import { formatBid } from '../common/bid';
 
 @Controller('users')
 @UseGuards(JwtAuthGuard)
@@ -22,7 +26,16 @@ export class UsersController {
       twoFaEnabled: user?.twoFaEnabled,
       avatar: user?.avatar,
       defaultPaymentMethods: user?.defaultPaymentMethods,
+      bid: user ? formatBid(user.bidNumber) : null,
     };
+  }
+
+  @Get('admin/all')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
+  async listAll() {
+    const users = await this.usersService.listAllForAdmin();
+    return users.map((u) => ({ ...u, bid: formatBid(u.bidNumber) }));
   }
 
   @Patch('me')
