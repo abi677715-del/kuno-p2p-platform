@@ -1,5 +1,3 @@
-$ cat /home/user/kuno-p2p-platform/backend/src/wallet/wallet.service.ts
-
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 import { Currency, Network, Prisma, Role, TxType, TxStatus } from '@prisma/client';
