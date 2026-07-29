@@ -211,12 +211,12 @@ model WalletTransaction {
   type        TxType
   amount      Decimal  @db.Decimal(20, 8)
   referenceId String?
+  network     Network?
   status      TxStatus @default(PENDING)
   createdAt   DateTime @default(now())
 
   @@map("wallet_transactions")
 }
-
 model DepositAddress {
   id        String   @id @default(uuid())
   userId    String
