@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../common/roles.guard';
 import { Roles } from '../common/roles.decorator';
@@ -23,8 +23,12 @@ export class WalletController {
   }
 
   @Get('deposit-address')
-  getDepositAddress(@Query('network') network: Network) {
-    return this.walletService.getDepositAddress(network ?? Network.TRC20);
+  getDepositAddress(@Query('network') network?: string) {
+    const requested = network ?? Network.TRC20;
+    if (!Object.values(Network).includes(requested as Network)) {
+      throw new BadRequestException('Unknown network');
+    }
+    return this.walletService.getDepositAddress(requested as Network);
   }
 
   @Post('deposit')
