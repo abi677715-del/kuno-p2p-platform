@@ -37,7 +37,7 @@ export async function verifyTronDeposit(
   const wanted = BigInt(Math.round(parseFloat(expectedAmount) * 10 ** USDT_DECIMALS_TRON));
   const expectedHex = tronWeb.address.toHex(expectedAddress).slice(-40).toLowerCase();
 
-  const matched = (info.log || []).some((log: any) => {
+  const matchLog = (info.log || []).find((log: any) => {
     const contractAddress = tronWeb.address.fromHex('41' + log.address);
     if (contractAddress !== USDT_CONTRACT_TRON) return false;
     if (!log.topics || log.topics[0]?.toLowerCase() !== TRANSFER_TOPIC) return false;
@@ -47,5 +47,9 @@ export async function verifyTronDeposit(
     return value >= wanted;
   });
 
-  return matched ? { verified: true } : { verified: false, reason: 'no matching transfer found in this transaction' };
+  if (!matchLog) return { verified: false, reason: 'no matching transfer found in this transaction' };
+
+  const fromHex = (matchLog.topics[1] || '').slice(-40);
+  const fromAddress = tronWeb.address.fromHex('41' + fromHex);
+  return { verified: true, fromAddress };
 }
