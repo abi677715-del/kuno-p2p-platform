@@ -15,8 +15,10 @@ import { AuditModule } from './audit/audit.module';
 import { RelationsModule } from './relations/relations.module';
 import { AdminModule } from './admin/admin.module';
 import { MerchantModule } from './merchant/merchant.module';
+import { AppController } from './app.controller';
 
 @Module({
+  controllers: [AppController],
   imports: [
     // Generous global default — signup/login apply a much stricter limit
     // themselves via @Throttle(), see auth.controller.ts.
