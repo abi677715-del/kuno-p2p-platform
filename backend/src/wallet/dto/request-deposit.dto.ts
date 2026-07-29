@@ -1,5 +1,5 @@
 import { IsEnum, IsNumberString, IsString, MinLength } from 'class-validator';
-import { Currency } from '@prisma/client';
+import { Currency, Network } from '@prisma/client';
 
 export class RequestDepositDto {
   @IsEnum(Currency)
@@ -9,6 +9,9 @@ export class RequestDepositDto {
   amount: string;
 
   @IsString()
-  @MinLength(10, { message: 'Enter the transaction hash from your wallet or TronScan' })
+  @MinLength(10, { message: 'Enter the transaction hash from your wallet or block explorer' })
   txHash: string;
+
+  @IsEnum(Network)
+  network: Network;
 }
