@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/api';
 import { formatAmount } from '@/lib/format';
+import { shortFor } from '@/lib/networks';
+import { NetworkIcon } from '@/components/NetworkIcon';
 
 export default function WalletPage() {
   const [wallets, setWallets] = useState<any[]>([]);
