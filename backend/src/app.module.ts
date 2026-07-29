@@ -13,6 +13,7 @@ import { SupportModule } from './support/support.module';
 import { AuditModule } from './audit/audit.module';
 import { RelationsModule } from './relations/relations.module';
 import { AdminModule } from './admin/admin.module';
+import { MerchantModule } from './merchant/merchant.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { AdminModule } from './admin/admin.module';
     AuditModule,
     RelationsModule,
     AdminModule,
+    MerchantModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
