@@ -33,8 +33,13 @@ enum Currency {
 enum Network {
   TRC20
   ERC20
+  BEP20
+  POLYGON
+  ARBITRUM
+  OPTIMISM
+  SOLANA
+  TON
 }
-
 enum TxType {
   DEPOSIT
   WITHDRAWAL
