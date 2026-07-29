@@ -1,8 +1,8 @@
-import { Body, Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../common/roles.guard';
 import { Roles } from '../common/roles.decorator';
-import { Role } from '@prisma/client';
+import { Network, Role } from '@prisma/client';
 import { WalletService } from './wallet.service';
 import { RequestDepositDto } from './dto/request-deposit.dto';
 import { RequestWithdrawalDto } from './dto/request-withdrawal.dto';
@@ -17,19 +17,24 @@ export class WalletController {
     return this.walletService.getBalances(req.user.userId);
   }
 
+  @Get('networks')
+  listSupportedNetworks() {
+    return this.walletService.listSupportedNetworks();
+  }
+
   @Get('deposit-address')
-  getDepositAddress() {
-    return this.walletService.getDepositAddress();
+  getDepositAddress(@Query('network') network: Network) {
+    return this.walletService.getDepositAddress(network ?? Network.TRC20);
   }
 
   @Post('deposit')
   requestDeposit(@Req() req: any, @Body() dto: RequestDepositDto) {
-    return this.walletService.requestDeposit(req.user.userId, dto.currency, dto.amount, dto.txHash);
+    return this.walletService.requestDeposit(req.user.userId, dto.currency, dto.amount, dto.txHash, dto.network);
   }
 
   @Post('withdraw')
   requestWithdrawal(@Req() req: any, @Body() dto: RequestWithdrawalDto) {
-    return this.walletService.requestWithdrawal(req.user.userId, dto.currency, dto.amount, dto.toAddress);
+    return this.walletService.requestWithdrawal(req.user.userId, dto.currency, dto.amount, dto.toAddress, dto.network);
   }
 
   @Get('transactions')
