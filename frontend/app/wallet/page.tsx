@@ -6,21 +6,23 @@ import { formatAmount } from '@/lib/format';
 import { shortFor } from '@/lib/networks';
 import { NetworkIcon } from '@/components/NetworkIcon';
 
+type NetworkOption = { network: string; label: string };
+
 export default function WalletPage() {
   const [wallets, setWallets] = useState<any[]>([]);
-  const [depositInfo, setDepositInfo] = useState<any>(null);
+  const [networks, setNetworks] = useState<NetworkOption[]>([]);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [error, setError] = useState('');
 
   async function loadAll() {
     try {
-      const [w, d, t] = await Promise.all([
+      const [w, n, t] = await Promise.all([
         apiFetch('/wallet/balance'),
-        apiFetch('/wallet/deposit-address'),
+        apiFetch('/wallet/networks'),
         apiFetch('/wallet/transactions'),
       ]);
       setWallets(w);
-      setDepositInfo(d);
+      setNetworks(n);
       setTransactions(t);
     } catch (err: any) {
       setError(err.message);
@@ -51,9 +53,9 @@ export default function WalletPage() {
             ))}
         </div>
 
-        {depositInfo && <DepositCard depositInfo={depositInfo} onSubmitted={loadAll} />}
+        {networks.length > 0 && <DepositCard networks={networks} onSubmitted={loadAll} />}
 
-        <WithdrawCard onSubmitted={loadAll} />
+        {networks.length > 0 && <WithdrawCard networks={networks} onSubmitted={loadAll} />}
 
         <div className="bg-surface border border-white/10 rounded-xl p-5">
           <h2 className="font-display font-medium text-paper mb-3">Recent activity</h2>
@@ -61,7 +63,7 @@ export default function WalletPage() {
             {transactions.map((tx) => (
               <div key={tx.id} className="flex items-center justify-between text-sm">
                 <span className="text-muted">
-                  {tx.type} · {new Date(tx.createdAt).toLocaleDateString()}
+                  {tx.type} {tx.network ? `· ${tx.network}` : ''} · {new Date(tx.createdAt).toLocaleDateString()}
                 </span>
                 <span className="font-mono text-paper">{formatAmount(tx.amount, 4)}</span>
                 <span
@@ -81,11 +83,57 @@ export default function WalletPage() {
   );
 }
 
-function DepositCard({ depositInfo, onSubmitted }: { depositInfo: any; onSubmitted: () => void }) {
+function NetworkSelect({
+  networks,
+  value,
+  onChange,
+}: {
+  networks: NetworkOption[];
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div>
+      <span className="text-xs text-muted block mb-2">Network</span>
+      <div className="grid grid-cols-4 gap-2">
+        {networks.map((n) => {
+          const active = n.network === value;
+          return (
+            <button
+              key={n.network}
+              type="button"
+              onClick={() => onChange(n.network)}
+              title={n.label}
+              className={`flex flex-col items-center gap-1 rounded-md py-2 px-1 border transition-colors ${
+                active ? 'border-transparent bg-gradient-to-br from-gold/20 to-teal/20 ring-1 ring-teal' : 'border-white/10 hover:border-white/25'
+              }`}
+            >
+              <span className="flex items-center justify-center h-8 w-8 rounded-full overflow-hidden">
+                <NetworkIcon network={n.network} />
+              </span>
+              <span className="text-[10px] text-muted text-center leading-tight">{shortFor(n.network)}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function DepositCard({ networks, onSubmitted }: { networks: NetworkOption[]; onSubmitted: () => void }) {
+  const [network, setNetwork] = useState(networks[0].network);
+  const [depositInfo, setDepositInfo] = useState<any>(null);
   const [amount, setAmount] = useState('');
   const [txHash, setTxHash] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+
+  useEffect(() => {
+    setDepositInfo(null);
+    apiFetch(`/wallet/deposit-address?network=${network}`)
+      .then(setDepositInfo)
+      .catch((err) => setError(err.message));
+  }, [network]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -93,7 +141,7 @@ function DepositCard({ depositInfo, onSubmitted }: { depositInfo: any; onSubmitt
     try {
       await apiFetch('/wallet/deposit', {
         method: 'POST',
-        body: JSON.stringify({ currency: 'USDT', amount, txHash }),
+        body: JSON.stringify({ currency: 'USDT', amount, txHash, network }),
       });
       setSuccess(true);
       setAmount('');
@@ -106,18 +154,27 @@ function DepositCard({ depositInfo, onSubmitted }: { depositInfo: any; onSubmitt
 
   return (
     <div className="bg-surface border border-white/10 rounded-xl p-5">
-      <h2 className="font-display font-medium text-paper mb-3">Deposit USDT (TRC20)</h2>
+      <h2 className="font-display font-medium text-paper mb-3">Deposit USDT</h2>
       <p className="text-xs text-muted mb-3">
-        Send USDT to this address, then submit the transaction hash below. Our team confirms it on-chain,
-        usually within a few minutes.
+        Pick the network you're sending from, send USDT to the address shown, then submit the transaction
+        hash below. Our team confirms it on-chain, usually within a few minutes.
       </p>
-      <div className="bg-white rounded-lg p-4 mb-3 flex justify-center">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={depositInfo.qrCodeDataUrl} alt="Deposit address QR code" width={160} height={160} />
+
+      <div className="mb-4">
+        <NetworkSelect networks={networks} value={network} onChange={setNetwork} />
       </div>
-      <p className="font-mono text-xs text-paper break-all bg-surfaceRaised rounded-md p-3 mb-4">
-        {depositInfo.address}
-      </p>
+
+      {depositInfo && (
+        <>
+          <div className="bg-white rounded-lg p-4 mb-3 flex justify-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={depositInfo.qrCodeDataUrl} alt="Deposit address QR code" width={160} height={160} />
+          </div>
+          <p className="font-mono text-xs text-paper break-all bg-surfaceRaised rounded-md p-3 mb-4">
+            {depositInfo.address}
+          </p>
+        </>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-3">
         <input
@@ -144,7 +201,8 @@ function DepositCard({ depositInfo, onSubmitted }: { depositInfo: any; onSubmitt
   );
 }
 
-function WithdrawCard({ onSubmitted }: { onSubmitted: () => void }) {
+function WithdrawCard({ networks, onSubmitted }: { networks: NetworkOption[]; onSubmitted: () => void }) {
+  const [network, setNetwork] = useState(networks[0].network);
   const [amount, setAmount] = useState('');
   const [toAddress, setToAddress] = useState('');
   const [error, setError] = useState('');
@@ -156,7 +214,7 @@ function WithdrawCard({ onSubmitted }: { onSubmitted: () => void }) {
     try {
       await apiFetch('/wallet/withdraw', {
         method: 'POST',
-        body: JSON.stringify({ currency: 'USDT', amount, toAddress }),
+        body: JSON.stringify({ currency: 'USDT', amount, toAddress, network }),
       });
       setSuccess(true);
       setAmount('');
@@ -169,11 +227,12 @@ function WithdrawCard({ onSubmitted }: { onSubmitted: () => void }) {
 
   return (
     <div className="bg-surface border border-white/10 rounded-xl p-5">
-      <h2 className="font-display font-medium text-paper mb-3">Withdraw USDT (TRC20)</h2>
+      <h2 className="font-display font-medium text-paper mb-3">Withdraw USDT</h2>
       <p className="text-xs text-muted mb-3">
         Funds are held while our team sends the USDT from the platform wallet, usually within a few hours.
       </p>
       <form onSubmit={handleSubmit} className="space-y-3">
+        <NetworkSelect networks={networks} value={network} onChange={setNetwork} />
         <input
           placeholder="Amount (USDT)"
           value={amount}
@@ -182,7 +241,7 @@ function WithdrawCard({ onSubmitted }: { onSubmitted: () => void }) {
           className="w-full bg-surfaceRaised rounded-md px-3 py-2 text-paper outline-none focus:ring-2 focus:ring-teal"
         />
         <input
-          placeholder="Your TRC20 address"
+          placeholder="Your destination address"
           value={toAddress}
           onChange={(e) => setToAddress(e.target.value)}
           required
