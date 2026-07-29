@@ -1,3 +1,5 @@
+$ cat /home/user/kuno-p2p-platform/backend/src/wallet/wallet.service.ts
+
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 import { Currency, Network, Prisma, Role, TxType, TxStatus } from '@prisma/client';
@@ -118,6 +120,40 @@ export class WalletService {
 
       await tx.wallet.update({ where: { id: record.walletId }, data: { lockedBalance: { decrement: record.amount } } });
       return tx.walletTransaction.update({ where: { id: transactionId }, data: { status: TxStatus.CONFIRMED } });
+    });
+  }
+
+  /**
+   * Records a withdrawal the auto-sender already broadcast on-chain: unlocks
+   * the held balance, banks the flat gas-fee deduction into the platform
+   * wallet as a FEE entry, and stores the real transaction hash.
+   */
+  async completeAutoWithdrawal(transactionId: string, txHash: string, feeAmount: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const record = await tx.walletTransaction.findUnique({ where: { id: transactionId } });
+      if (!record || record.type !== TxType.WITHDRAWAL) throw new NotFoundException('Withdrawal not found');
+      if (record.status !== TxStatus.PENDING) throw new BadRequestException('Withdrawal already processed');
+
+      const wallet = await tx.wallet.findUnique({ where: { id: record.walletId } });
+      if (!wallet) throw new NotFoundException('Wallet not found');
+
+      await tx.wallet.update({ where: { id: record.walletId }, data: { lockedBalance: { decrement: record.amount } } });
+
+      if (parseFloat(feeAmount) > 0) {
+        const platformWallet = await this.getOrCreatePlatformWallet(tx, wallet.currency);
+        await tx.wallet.update({ where: { id: platformWallet.id }, data: { balance: { increment: feeAmount } } });
+        await tx.walletTransaction.create({
+          data: {
+            walletId: platformWallet.id,
+            type: TxType.FEE,
+            amount: feeAmount,
+            referenceId: transactionId,
+            status: TxStatus.CONFIRMED,
+          },
+        });
+      }
+
+      return tx.walletTransaction.update({ where: { id: transactionId }, data: { status: TxStatus.CONFIRMED, txHash } });
     });
   }
 
