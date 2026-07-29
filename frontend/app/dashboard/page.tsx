@@ -10,6 +10,7 @@ const links = [
   { href: '/wallet', label: 'Wallet', description: 'Deposit, withdraw, and view balances' },
   { href: '/notifications', label: 'Notifications', description: 'Updates on your trades and account' },
   { href: '/kyc', label: 'Verification', description: 'Complete KYC to unlock higher limits' },
+  { href: '/merchant/apply', label: 'Become a merchant', description: 'Apply for 1% fees and a merchant badge' },
   { href: '/profile', label: 'Profile & Settings', description: 'Edit your info, password, and security' },
   { href: '/support', label: 'Support', description: 'FAQs and help requests' },
 ];
