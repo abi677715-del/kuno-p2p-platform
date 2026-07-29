@@ -91,6 +91,12 @@ enum DisputeStatus {
   RESOLVED
 }
 
+enum MerchantApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum SupportTicketStatus {
   OPEN
   RESOLVED
@@ -132,8 +138,22 @@ model User {
   referrals        User[]           @relation("referrals")
   relationsMade    UserRelation[]   @relation("relationOwner")
   relationsOfMe    UserRelation[]   @relation("relationTarget")
+  merchantApplications MerchantApplication[]
 
   @@map("users")
+}
+
+model MerchantApplication {
+  id              String                    @id @default(uuid())
+  userId          String
+  user            User                      @relation(fields: [userId], references: [id])
+  reason          String                    @db.Text
+  status          MerchantApplicationStatus @default(PENDING)
+  rejectionReason String?                   @db.Text
+  createdAt       DateTime                  @default(now())
+  reviewedAt      DateTime?
+
+  @@map("merchant_applications")
 }
 
 model UserRelation {
