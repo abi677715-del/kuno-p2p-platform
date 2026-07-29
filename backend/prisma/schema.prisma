@@ -215,6 +215,7 @@ model WalletTransaction {
   status      TxStatus @default(PENDING)
   txHash      String?
   fromAddress String?
+  code        String?
   createdAt   DateTime @default(now())
 
   @@map("wallet_transactions")
