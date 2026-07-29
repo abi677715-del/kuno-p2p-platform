@@ -26,7 +26,7 @@ export async function verifySolanaDeposit(
   const post = tx.meta?.postTokenBalances ?? [];
   const pre = tx.meta?.preTokenBalances ?? [];
 
-  const matched = post.some((postBal) => {
+  const matchedPost = post.find((postBal) => {
     if (postBal.mint !== USDT_MINT_SOLANA || postBal.owner !== expectedAddress) return false;
     const preBal = pre.find((p) => p.accountIndex === postBal.accountIndex);
     const preAmount = preBal ? BigInt(preBal.uiTokenAmount.amount) : 0n;
@@ -34,5 +34,15 @@ export async function verifySolanaDeposit(
     return postAmount - preAmount >= wanted;
   });
 
-  return matched ? { verified: true } : { verified: false, reason: 'no matching transfer found in this transaction' };
+  if (!matchedPost) return { verified: false, reason: 'no matching transfer found in this transaction' };
+
+  const senderPost = post.find((postBal) => {
+    if (postBal.mint !== USDT_MINT_SOLANA || postBal.accountIndex === matchedPost.accountIndex) return false;
+    const preBal = pre.find((p) => p.accountIndex === postBal.accountIndex);
+    const preAmount = preBal ? BigInt(preBal.uiTokenAmount.amount) : 0n;
+    const postAmount = BigInt(postBal.uiTokenAmount.amount);
+    return preAmount - postAmount > 0n;
+  });
+
+  return { verified: true, fromAddress: senderPost?.owner };
 }
