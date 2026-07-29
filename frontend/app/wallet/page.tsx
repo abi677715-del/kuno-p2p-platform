@@ -89,7 +89,7 @@ function NetworkSelect({
   onChange,
 }: {
   networks: NetworkOption[];
-  value: string;
+  value: string | null;
   onChange: (v: string) => void;
 }) {
   return (
@@ -121,7 +121,7 @@ function NetworkSelect({
 }
 
 function DepositCard({ networks, onSubmitted }: { networks: NetworkOption[]; onSubmitted: () => void }) {
-  const [network, setNetwork] = useState(networks[0].network);
+  const [network, setNetwork] = useState<string | null>(null);
   const [depositInfo, setDepositInfo] = useState<any>(null);
   const [amount, setAmount] = useState('');
   const [txHash, setTxHash] = useState('');
@@ -129,6 +129,10 @@ function DepositCard({ networks, onSubmitted }: { networks: NetworkOption[]; onS
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
+    if (!network) {
+      setDepositInfo(null);
+      return;
+    }
     setDepositInfo(null);
     apiFetch(`/wallet/deposit-address?network=${network}`)
       .then(setDepositInfo)
@@ -138,6 +142,10 @@ function DepositCard({ networks, onSubmitted }: { networks: NetworkOption[]; onS
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
+    if (!network) {
+      setError('Pick a network first.');
+      return;
+    }
     try {
       await apiFetch('/wallet/deposit', {
         method: 'POST',
@@ -164,7 +172,9 @@ function DepositCard({ networks, onSubmitted }: { networks: NetworkOption[]; onS
         <NetworkSelect networks={networks} value={network} onChange={setNetwork} />
       </div>
 
-      {depositInfo && (
+      {!network && <p className="text-muted text-sm mb-4">Tap a network above to see its deposit address.</p>}
+
+      {network && depositInfo && (
         <>
           <div className="bg-white rounded-lg p-4 mb-3 flex justify-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -173,30 +183,30 @@ function DepositCard({ networks, onSubmitted }: { networks: NetworkOption[]; onS
           <p className="font-mono text-xs text-paper break-all bg-surfaceRaised rounded-md p-3 mb-4">
             {depositInfo.address}
           </p>
+
+          <form onSubmit={handleSubmit} className="space-y-3">
+            <input
+              placeholder="Amount sent (USDT)"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              required
+              className="w-full bg-surfaceRaised rounded-md px-3 py-2 text-paper outline-none focus:ring-2 focus:ring-teal"
+            />
+            <input
+              placeholder="Transaction hash"
+              value={txHash}
+              onChange={(e) => setTxHash(e.target.value)}
+              required
+              className="w-full bg-surfaceRaised rounded-md px-3 py-2 text-paper outline-none focus:ring-2 focus:ring-teal"
+            />
+            {error && <p className="text-red-400 text-sm">{error}</p>}
+            {success && <p className="text-teal text-sm">Submitted — pending confirmation.</p>}
+            <button type="submit" className="w-full rounded-md bg-gradient-to-br from-gold to-teal py-2 text-ink font-medium hover:opacity-90 transition-opacity">
+              Submit deposit
+            </button>
+          </form>
         </>
       )}
-
-      <form onSubmit={handleSubmit} className="space-y-3">
-        <input
-          placeholder="Amount sent (USDT)"
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          required
-          className="w-full bg-surfaceRaised rounded-md px-3 py-2 text-paper outline-none focus:ring-2 focus:ring-teal"
-        />
-        <input
-          placeholder="Transaction hash"
-          value={txHash}
-          onChange={(e) => setTxHash(e.target.value)}
-          required
-          className="w-full bg-surfaceRaised rounded-md px-3 py-2 text-paper outline-none focus:ring-2 focus:ring-teal"
-        />
-        {error && <p className="text-red-400 text-sm">{error}</p>}
-        {success && <p className="text-teal text-sm">Submitted — pending confirmation.</p>}
-        <button type="submit" className="w-full rounded-md bg-gradient-to-br from-gold to-teal py-2 text-ink font-medium hover:opacity-90 transition-opacity">
-          Submit deposit
-        </button>
-      </form>
     </div>
   );
 }
