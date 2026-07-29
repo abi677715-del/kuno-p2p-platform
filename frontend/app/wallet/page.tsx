@@ -61,14 +61,18 @@ export default function WalletPage() {
           <h2 className="font-display font-medium text-paper mb-3">Recent activity</h2>
           <div className="space-y-2">
             {transactions.map((tx) => (
-              <div key={tx.id} className="flex items-center justify-between text-sm">
-                <span className="text-muted">
-                  {tx.type} {tx.network ? `· ${tx.network}` : ''} · {new Date(tx.createdAt).toLocaleDateString()}
+              <div key={tx.id} className="flex items-center justify-between text-sm gap-3">
+                <span className="text-muted min-w-0">
+                  <span className="block">
+                    {tx.type} {tx.network ? `· ${tx.network}` : ''} · {new Date(tx.createdAt).toLocaleDateString()}
+                  </span>
+                  {tx.code && <span className="block font-mono text-[11px] text-muted/70">{tx.code}</span>}
                 </span>
-                <span className="font-mono text-paper">{formatAmount(tx.amount, 4)}</span>
+                <span className="font-mono text-paper shrink-0">{formatAmount(tx.amount, 4)}</span>
                 <span
                   className={
-                    tx.status === 'CONFIRMED' ? 'text-teal text-xs' : tx.status === 'FAILED' ? 'text-red-400 text-xs' : 'text-gold text-xs'
+                    (tx.status === 'CONFIRMED' ? 'text-teal text-xs' : tx.status === 'FAILED' ? 'text-red-400 text-xs' : 'text-gold text-xs') +
+                    ' shrink-0'
                   }
                 >
                   {tx.status}
