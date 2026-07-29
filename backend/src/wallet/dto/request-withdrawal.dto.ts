@@ -1,5 +1,5 @@
 import { IsEnum, IsNumberString, IsString, MinLength } from 'class-validator';
-import { Currency } from '@prisma/client';
+import { Currency, Network } from '@prisma/client';
 
 export class RequestWithdrawalDto {
   @IsEnum(Currency)
@@ -11,4 +11,7 @@ export class RequestWithdrawalDto {
   @IsString()
   @MinLength(10, { message: 'Enter a valid destination address' })
   toAddress: string;
+
+  @IsEnum(Network)
+  network: Network;
 }
