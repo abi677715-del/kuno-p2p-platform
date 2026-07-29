@@ -4,6 +4,7 @@ import { Currency, Network, Prisma, Role, TxType, TxStatus } from '@prisma/clien
 import * as QRCode from 'qrcode';
 import { addressForNetwork, configuredNetworks, NETWORK_LABELS } from './networks';
 import { isPlausibleAddress } from './address-format';
+import { generateTxCode } from './tx-code';
 
 const PLATFORM_ACCOUNT_EMAIL = 'platform@birrly.internal';
 
@@ -58,6 +59,7 @@ export class WalletService {
         referenceId: txHash,
         network,
         status: TxStatus.PENDING,
+        code: generateTxCode(),
       },
     });
   }
@@ -109,6 +111,7 @@ export class WalletService {
           referenceId: toAddress,
           network,
           status: TxStatus.PENDING,
+          code: generateTxCode(),
         },
       });
     });
@@ -152,6 +155,7 @@ export class WalletService {
             amount: feeAmount,
             referenceId: transactionId,
             status: TxStatus.CONFIRMED,
+            code: generateTxCode(),
           },
         });
       }
@@ -234,6 +238,7 @@ export class WalletService {
           amount,
           referenceId,
           status: TxStatus.CONFIRMED,
+          code: generateTxCode(),
         },
       });
     });
@@ -314,9 +319,9 @@ export class WalletService {
 
       await tx.walletTransaction.createMany({
         data: [
-          { walletId: fromWallet.id, type: TxType.RELEASE, amount, referenceId, status: TxStatus.CONFIRMED },
-          { walletId: toWallet.id, type: TxType.DEPOSIT, amount: netAmount, referenceId, status: TxStatus.CONFIRMED },
-          { walletId: platformWallet.id, type: TxType.FEE, amount: feeAmount, referenceId, status: TxStatus.CONFIRMED },
+          { walletId: fromWallet.id, type: TxType.RELEASE, amount, referenceId, status: TxStatus.CONFIRMED, code: generateTxCode() },
+          { walletId: toWallet.id, type: TxType.DEPOSIT, amount: netAmount, referenceId, status: TxStatus.CONFIRMED, code: generateTxCode() },
+          { walletId: platformWallet.id, type: TxType.FEE, amount: feeAmount, referenceId, status: TxStatus.CONFIRMED, code: generateTxCode() },
         ],
       });
 
@@ -339,7 +344,7 @@ export class WalletService {
       });
 
       await tx.walletTransaction.create({
-        data: { walletId: wallet.id, type: TxType.REFUND, amount, referenceId, status: TxStatus.CONFIRMED },
+        data: { walletId: wallet.id, type: TxType.REFUND, amount, referenceId, status: TxStatus.CONFIRMED, code: generateTxCode() },
       });
     });
   }
@@ -352,7 +357,7 @@ export class WalletService {
     await this.prisma.$transaction([
       this.prisma.wallet.update({ where: { id: wallet.id }, data: { balance: { increment: amount } } }),
       this.prisma.walletTransaction.create({
-        data: { walletId: wallet.id, type: TxType.REFERRAL, amount, referenceId, status: TxStatus.CONFIRMED },
+        data: { walletId: wallet.id, type: TxType.REFERRAL, amount, referenceId, status: TxStatus.CONFIRMED, code: generateTxCode() },
       }),
     ]);
   }
