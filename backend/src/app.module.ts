@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
+import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { PrismaModule } from './common/prisma.module';
 import { AuthModule } from './auth/auth.module';
@@ -20,6 +21,7 @@ import { MerchantModule } from './merchant/merchant.module';
     // Generous global default — signup/login apply a much stricter limit
     // themselves via @Throttle(), see auth.controller.ts.
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
+    ScheduleModule.forRoot(),
     PrismaModule,
     AuthModule,
     UsersModule,
