@@ -1,7 +1,8 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
-import { Currency, Prisma, Role, TxType, TxStatus } from '@prisma/client';
+import { Currency, Network, Prisma, Role, TxType, TxStatus } from '@prisma/client';
 import * as QRCode from 'qrcode';
+import { addressForNetwork, configuredNetworks, NETWORK_LABELS } from './networks';
 
 const PLATFORM_ACCOUNT_EMAIL = 'platform@birrly.internal';
 
@@ -18,21 +19,30 @@ export class WalletService {
   }
 
   /**
-   * Every user deposits to the same custodial TRC20 address — there's no
-   * per-user address or on-chain watcher. The user sends USDT, then tells us
-   * the transaction hash here; an admin checks it on TronScan and confirms.
+   * Every user deposits to the same custodial address per network — there's
+   * no per-user address or on-chain watcher. The user sends USDT on their
+   * chosen network, then tells us the transaction hash here; an admin checks
+   * it on that network's explorer and confirms.
    */
-  async getDepositAddress() {
-    const address = process.env.PLATFORM_DEPOSIT_ADDRESS;
-    if (!address) throw new BadRequestException('Deposit address is not configured');
+  listSupportedNetworks() {
+    return configuredNetworks().map((network) => ({ network, label: NETWORK_LABELS[network] }));
+  }
+
+  async getDepositAddress(network: Network) {
+    const address = addressForNetwork(network);
+    if (!address) throw new BadRequestException(`Deposits on ${NETWORK_LABELS[network]} are not available right now`);
     const qrCodeDataUrl = await QRCode.toDataURL(address);
-    return { address, network: 'TRC20', qrCodeDataUrl };
+    return { address, network, qrCodeDataUrl };
   }
 
   /** User claims they sent funds to the platform address; sits as PENDING until an admin confirms on-chain. */
-  async requestDeposit(userId: string, currency: Currency, amount: string, txHash: string) {
+  async requestDeposit(userId: string, currency: Currency, amount: string, txHash: string, network: Network) {
     const wallet = await this.prisma.wallet.findUnique({ where: { userId_currency: { userId, currency } } });
     if (!wallet) throw new NotFoundException('Wallet not found');
+
+    if (!addressForNetwork(network)) {
+      throw new BadRequestException(`Deposits on ${NETWORK_LABELS[network]} are not available right now`);
+    }
 
     const existing = await this.prisma.walletTransaction.findFirst({
       where: { type: TxType.DEPOSIT, referenceId: txHash },
@@ -45,6 +55,7 @@ export class WalletService {
         type: TxType.DEPOSIT,
         amount,
         referenceId: txHash,
+        network,
         status: TxStatus.PENDING,
       },
     });
@@ -74,7 +85,7 @@ export class WalletService {
    * to locked immediately so they can't be spent elsewhere while the request
    * is pending; an admin manually sends the USDT out from the platform wallet.
    */
-  async requestWithdrawal(userId: string, currency: Currency, amount: string, toAddress: string) {
+  async requestWithdrawal(userId: string, currency: Currency, amount: string, toAddress: string, network: Network) {
     return this.prisma.$transaction(async (tx) => {
       const wallet = await tx.wallet.findUnique({ where: { userId_currency: { userId, currency } } });
       if (!wallet) throw new NotFoundException('Wallet not found');
@@ -91,6 +102,7 @@ export class WalletService {
           type: TxType.WITHDRAWAL,
           amount,
           referenceId: toAddress,
+          network,
           status: TxStatus.PENDING,
         },
       });
