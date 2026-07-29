@@ -1,1 +1,1 @@
-export type VerifyResult = { verified: boolean; reason?: string };
+export type VerifyResult = { verified: boolean; reason?: string; fromAddress?: string };
