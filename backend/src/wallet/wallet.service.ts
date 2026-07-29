@@ -3,6 +3,7 @@ import { PrismaService } from '../common/prisma.service';
 import { Currency, Network, Prisma, Role, TxType, TxStatus } from '@prisma/client';
 import * as QRCode from 'qrcode';
 import { addressForNetwork, configuredNetworks, NETWORK_LABELS } from './networks';
+import { isPlausibleAddress } from './address-format';
 
 const PLATFORM_ACCOUNT_EMAIL = 'platform@birrly.internal';
 
@@ -86,6 +87,10 @@ export class WalletService {
    * is pending; an admin manually sends the USDT out from the platform wallet.
    */
   async requestWithdrawal(userId: string, currency: Currency, amount: string, toAddress: string, network: Network) {
+    if (!isPlausibleAddress(network, toAddress)) {
+      throw new BadRequestException("That destination address doesn't look valid for the selected network");
+    }
+
     return this.prisma.$transaction(async (tx) => {
       const wallet = await tx.wallet.findUnique({ where: { userId_currency: { userId, currency } } });
       if (!wallet) throw new NotFoundException('Wallet not found');
@@ -130,7 +135,7 @@ export class WalletService {
     return this.prisma.$transaction(async (tx) => {
       const record = await tx.walletTransaction.findUnique({ where: { id: transactionId } });
       if (!record || record.type !== TxType.WITHDRAWAL) throw new NotFoundException('Withdrawal not found');
-      if (record.status !== TxStatus.PENDING) throw new BadRequestException('Withdrawal already processed');
+      if (record.status !== TxStatus.PROCESSING) throw new BadRequestException('Withdrawal already processed');
 
       const wallet = await tx.wallet.findUnique({ where: { id: record.walletId } });
       if (!wallet) throw new NotFoundException('Wallet not found');
