@@ -25,7 +25,7 @@ export async function verifyEvmDeposit(
   if (confirmations < MIN_CONFIRMATIONS) return { verified: false, reason: 'awaiting confirmations' };
 
   const wanted = ethers.parseUnits(expectedAmount, decimals);
-  const matched = receipt.logs.some((log) => {
+  const matchLog = receipt.logs.find((log) => {
     if (log.address.toLowerCase() !== contract.toLowerCase()) return false;
     if (log.topics[0] !== TRANSFER_TOPIC || log.topics.length < 3) return false;
     const to = ethers.getAddress('0x' + log.topics[2].slice(26));
@@ -34,5 +34,8 @@ export async function verifyEvmDeposit(
     return value >= wanted;
   });
 
-  return matched ? { verified: true } : { verified: false, reason: 'no matching transfer found in this transaction' };
+  if (!matchLog) return { verified: false, reason: 'no matching transfer found in this transaction' };
+
+  const fromAddress = ethers.getAddress('0x' + matchLog.topics[1].slice(26));
+  return { verified: true, fromAddress };
 }
