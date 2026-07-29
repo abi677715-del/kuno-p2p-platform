@@ -41,6 +41,7 @@ export default function AdminWalletPage() {
             {deposits.map((d) => (
               <Row
                 key={d.id}
+                code={d.code}
                 email={d.wallet.user.email}
                 amount={d.amount}
                 detail={d.referenceId}
@@ -62,6 +63,7 @@ export default function AdminWalletPage() {
             {withdrawals.map((w) => (
               <Row
                 key={w.id}
+                code={w.code}
                 email={w.wallet.user.email}
                 amount={w.amount}
                 detail={w.referenceId}
@@ -79,6 +81,7 @@ export default function AdminWalletPage() {
 }
 
 function Row({
+  code,
   email,
   amount,
   detail,
@@ -86,6 +89,7 @@ function Row({
   onConfirm,
   onReject,
 }: {
+  code?: string;
   email: string;
   amount: string;
   detail: string;
@@ -97,6 +101,7 @@ function Row({
     <div className="bg-surface border border-white/10 rounded-xl p-5 flex items-center justify-between gap-4">
       <div className="min-w-0">
         <p className="text-paper font-medium">{email}</p>
+        {code && <p className="font-mono text-xs text-teal">{code}</p>}
         <p className="font-mono text-sm text-gold">{amount} USDT</p>
         <p className="text-xs text-muted truncate">{detailLabel}: {detail}</p>
       </div>
