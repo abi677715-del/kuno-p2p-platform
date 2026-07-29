@@ -213,6 +213,7 @@ model WalletTransaction {
   referenceId String?
   network     Network?
   status      TxStatus @default(PENDING)
+  txHash      String?
   createdAt   DateTime @default(now())
 
   @@map("wallet_transactions")
