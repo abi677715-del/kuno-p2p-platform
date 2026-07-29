@@ -52,10 +52,10 @@ enum TxType {
 
 enum TxStatus {
   PENDING
+  PROCESSING
   CONFIRMED
   FAILED
 }
-
 enum AdSide {
   BUY
   SELL
