@@ -39,7 +39,7 @@ function SignupContent() {
       }
       const data = await res.json();
       localStorage.setItem('accessToken', data.accessToken);
-      window.location.href = '/dashboard';
+      window.location.href = '/terms-accept';;
     } catch (err: any) {
       setError(err.message ?? 'Something went wrong');
     } finally {
