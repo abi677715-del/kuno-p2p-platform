@@ -30,7 +30,13 @@ export class UsersController {
       defaultPaymentMethods: user?.defaultPaymentMethods,
       bid: user ? formatBid(user.bidNumber) : null,
       isMerchant: user?.isMerchant,
+      termsAccepted: !!user?.termsAcceptedAt,
     };
+  }
+
+  @Post('me/accept-terms')
+  acceptTerms(@Req() req: any) {
+    return this.usersService.acceptTerms(req.user.userId);
   }
 
   @Get('admin/all')
