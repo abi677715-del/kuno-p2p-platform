@@ -6,6 +6,7 @@ import { AdsService } from '../ads/ads.service';
 import { KycService } from '../kyc/kyc.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { RelationsService } from '../relations/relations.service';
+import { UsersService } from '../users/users.service';
 import { AdSide, Currency, DisputeStatus, EscrowStatus, TradeStatus } from '@prisma/client';
 import { CreateTradeDto } from './dto/create-trade.dto';
 import { DisputeTradeDto } from './dto/dispute-trade.dto';
@@ -24,6 +25,7 @@ export class TradesService {
     private kycService: KycService,
     private notificationsService: NotificationsService,
     private relationsService: RelationsService,
+    private usersService: UsersService,
   ) {}
 
   /**
@@ -33,8 +35,10 @@ export class TradesService {
    */
   async createTrade(takerId: string, dto: CreateTradeDto) {
     await this.kycService.assertApproved(takerId);
+    await this.usersService.assertTermsAccepted(takerId);
     const ad = await this.adsService.findById(dto.adId);
     await this.kycService.assertApproved(ad.userId);
+    await this.usersService.assertTermsAccepted(ad.userId);
 
     // If the ad owner is selling USDT, they are the seller and the taker buys.
     // If the ad owner is buying USDT, the taker is the one selling USDT.
@@ -179,7 +183,7 @@ export class TradesService {
       }
     }
 
-        await this.kycService.assertApproved(trade.buyerId);
+    await this.kycService.assertApproved(trade.buyerId);
 
     const feePercent = await this.resolveFeePercent(trade);
     const releaseResult = await this.walletService.releaseFunds(
@@ -410,7 +414,7 @@ export class TradesService {
 
     const { trade } = dispute;
 
-        if (dto.outcome === DisputeOutcome.RELEASE_TO_BUYER) {
+    if (dto.outcome === DisputeOutcome.RELEASE_TO_BUYER) {
       await this.kycService.assertApproved(trade.buyerId);
 
       const feePercent = await this.resolveFeePercent(trade);
