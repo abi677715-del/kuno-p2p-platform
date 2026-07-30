@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../common/prisma.service';
@@ -134,6 +134,18 @@ export class UsersService {
 
   setAvatar(userId: string, avatar: string) {
     return this.prisma.user.update({ where: { id: userId }, data: { avatar } });
+  }
+
+  acceptTerms(userId: string) {
+    return this.prisma.user.update({ where: { id: userId }, data: { termsAcceptedAt: new Date() } });
+  }
+
+  /** Blocks posting ads or starting trades until the user has agreed to the current Terms of Service. */
+  async assertTermsAccepted(userId: string) {
+    const user = await this.findById(userId);
+    if (!user?.termsAcceptedAt) {
+      throw new ForbiddenException('Please accept the Terms of Service before continuing to trade');
+    }
   }
 
   async changePassword(userId: string, currentPassword: string, newPassword: string) {
