@@ -9,9 +9,10 @@ import { AdsModule } from '../ads/ads.module';
 import { KycModule } from '../kyc/kyc.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { RelationsModule } from '../relations/relations.module';
+import { UsersModule } from '../users/users.module';
 
 @Module({
-  imports: [WalletModule, AdsModule, KycModule, NotificationsModule, RelationsModule, JwtModule.register({})],
+  imports: [WalletModule, AdsModule, KycModule, NotificationsModule, RelationsModule, UsersModule, JwtModule.register({})],
   controllers: [TradesController],
   providers: [TradesService, TradeChatGateway, TradeTimeoutService],
 })
