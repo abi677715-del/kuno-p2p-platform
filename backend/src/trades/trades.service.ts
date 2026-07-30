@@ -179,6 +179,8 @@ export class TradesService {
       }
     }
 
+        await this.kycService.assertApproved(trade.buyerId);
+
     const feePercent = await this.resolveFeePercent(trade);
     const releaseResult = await this.walletService.releaseFunds(
       trade.sellerId,
