@@ -8,6 +8,7 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { UpdateAvatarDto } from './dto/update-avatar.dto';
 import { UpdateMerchantDto } from './dto/update-merchant.dto';
+import { SetRoleDto } from './dto/set-role.dto';
 import { formatBid } from '../common/bid';
 
 @Controller('users')
@@ -45,6 +46,13 @@ export class UsersController {
   @Roles(Role.ADMIN)
   setMerchantStatus(@Param('id') id: string, @Body() dto: UpdateMerchantDto) {
     return this.usersService.setMerchantStatus(id, dto.isMerchant);
+  }
+
+  @Patch('admin/:id/role')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
+  setRole(@Param('id') id: string, @Body() dto: SetRoleDto) {
+    return this.usersService.setRole(id, dto.role);
   }
 
   @Patch('me')
