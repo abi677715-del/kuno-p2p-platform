@@ -14,9 +14,10 @@ function tierFor(completedTrades: number): string | null {
 
 @Injectable()
 export class AdsService {
-  constructor(
+    constructor(
     private prisma: PrismaService,
     private kycService: KycService,
+    private usersService: UsersService,
   ) {}
 
   /**
