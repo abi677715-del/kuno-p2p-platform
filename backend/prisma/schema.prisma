@@ -128,8 +128,9 @@ model User {
   passwordResetExpires   DateTime?
   createdAt              DateTime   @default(now())
   lastSeenAt             DateTime   @default(now())
-  defaultPaymentMethods  String[]   @default([])
+   defaultPaymentMethods  String[]   @default([])
   referredById           String?
+  termsAcceptedAt        DateTime?
 
   kycRecord        KycRecord?
   wallets          Wallet[]
