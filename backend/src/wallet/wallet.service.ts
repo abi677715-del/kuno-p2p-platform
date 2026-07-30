@@ -5,12 +5,16 @@ import * as QRCode from 'qrcode';
 import { addressForNetwork, configuredNetworks, NETWORK_LABELS } from './networks';
 import { isPlausibleAddress } from './address-format';
 import { generateTxCode } from './tx-code';
+import { KycService } from '../kyc/kyc.service';
 
 const PLATFORM_ACCOUNT_EMAIL = 'platform@birrly.internal';
 
 @Injectable()
 export class WalletService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private kycService: KycService,
+  ) {}
 
   async getBalances(userId: string) {
     const wallets = await this.prisma.wallet.findMany({ where: { userId } });
@@ -89,6 +93,8 @@ export class WalletService {
    * is pending; an admin manually sends the USDT out from the platform wallet.
    */
   async requestWithdrawal(userId: string, currency: Currency, amount: string, toAddress: string, network: Network) {
+    await this.kycService.assertApproved(userId);
+
     if (!isPlausibleAddress(network, toAddress)) {
       throw new BadRequestException("That destination address doesn't look valid for the selected network");
     }
