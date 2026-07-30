@@ -36,8 +36,9 @@ export class AdsService {
     }
   }
 
-  async create(userId: string, dto: CreateAdDto) {
+   async create(userId: string, dto: CreateAdDto) {
     await this.kycService.assertApproved(userId);
+    await this.usersService.assertTermsAccepted(userId);
 
     const pricingMode = dto.pricingMode ?? AdPricingMode.FIXED;
     if (pricingMode === AdPricingMode.FLOATING && dto.marginPercent === undefined) {
