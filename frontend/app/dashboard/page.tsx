@@ -74,7 +74,14 @@ export default function DashboardPage() {
   function loadProfile() {
     fetch(`${API_URL}/users/me`, { headers: { Authorization: `Bearer ${token}` } })
       .then((res) => (res.ok ? res.json() : null))
-      .then((data) => data && setProfile(data))
+      .then((data) => {
+        if (!data) return;
+        if (!data.termsAccepted) {
+          window.location.href = '/terms-accept';
+          return;
+        }
+        setProfile(data);
+      })
       .catch(() => {});
   }
 
