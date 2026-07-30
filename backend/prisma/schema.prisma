@@ -40,6 +40,7 @@ enum Network {
   SOLANA
   TON
 }
+
 enum TxType {
   DEPOSIT
   WITHDRAWAL
@@ -56,6 +57,7 @@ enum TxStatus {
   CONFIRMED
   FAILED
 }
+
 enum AdSide {
   BUY
   SELL
@@ -144,6 +146,7 @@ model User {
   relationsMade    UserRelation[]   @relation("relationOwner")
   relationsOfMe    UserRelation[]   @relation("relationTarget")
   merchantApplications MerchantApplication[]
+  transactionAppeals   TransactionAppeal[]
 
   @@map("users")
 }
@@ -218,8 +221,11 @@ model WalletTransaction {
   code        String?
   createdAt   DateTime @default(now())
 
+  appeals TransactionAppeal[]
+
   @@map("wallet_transactions")
 }
+
 model DepositAddress {
   id        String   @id @default(uuid())
   userId    String
@@ -312,6 +318,29 @@ model Dispute {
   createdAt  DateTime      @default(now())
 
   @@map("disputes")
+}
+
+enum AppealStatus {
+  OPEN
+  RESOLVED
+  DISMISSED
+}
+
+// Lets a user contest a specific wallet transaction (a rejected deposit/withdrawal, a fee they disagree with, etc.) instead of only being able to raise a dispute on a trade.
+model TransactionAppeal {
+  id            String            @id @default(uuid())
+  transactionId String
+  transaction   WalletTransaction @relation(fields: [transactionId], references: [id])
+  userId        String
+  user          User              @relation(fields: [userId], references: [id])
+  reason        String            @db.Text
+  status        AppealStatus      @default(OPEN)
+  resolution    String?           @db.Text
+  resolvedBy    String?
+  resolvedAt    DateTime?
+  createdAt     DateTime          @default(now())
+
+  @@map("transaction_appeals")
 }
 
 model Notification {
