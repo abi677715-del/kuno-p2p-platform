@@ -13,6 +13,8 @@ export default function WalletPage() {
   const [networks, setNetworks] = useState<NetworkOption[]>([]);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [error, setError] = useState('');
+  const [appealingId, setAppealingId] = useState<string | null>(null);
+  const [appealedIds, setAppealedIds] = useState<Set<string>>(new Set());
 
   async function loadAll() {
     try {
@@ -61,22 +63,45 @@ export default function WalletPage() {
           <h2 className="font-display font-medium text-paper mb-3">Recent activity</h2>
           <div className="space-y-2">
             {transactions.map((tx) => (
-              <div key={tx.id} className="flex items-center justify-between text-sm gap-3">
-                <span className="text-muted min-w-0">
-                  <span className="block">
-                    {tx.type} {tx.network ? `· ${tx.network}` : ''} · {new Date(tx.createdAt).toLocaleDateString()}
+              <div key={tx.id} className="border-b border-white/5 last:border-0 pb-2 last:pb-0">
+                <div className="flex items-center justify-between text-sm gap-3">
+                  <span className="text-muted min-w-0">
+                    <span className="block">
+                      {tx.type} {tx.network ? `· ${tx.network}` : ''} · {new Date(tx.createdAt).toLocaleDateString()}
+                    </span>
+                    {tx.code && <span className="block font-mono text-[11px] text-muted/70">{tx.code}</span>}
                   </span>
-                  {tx.code && <span className="block font-mono text-[11px] text-muted/70">{tx.code}</span>}
-                </span>
-                <span className="font-mono text-paper shrink-0">{formatAmount(tx.amount, 4)}</span>
-                <span
-                  className={
-                    (tx.status === 'CONFIRMED' ? 'text-teal text-xs' : tx.status === 'FAILED' ? 'text-red-400 text-xs' : 'text-gold text-xs') +
-                    ' shrink-0'
-                  }
-                >
-                  {tx.status}
-                </span>
+                  <span className="font-mono text-paper shrink-0">{formatAmount(tx.amount, 4)}</span>
+                  <span
+                    className={
+                      (tx.status === 'CONFIRMED' ? 'text-teal text-xs' : tx.status === 'FAILED' ? 'text-red-400 text-xs' : 'text-gold text-xs') +
+                      ' shrink-0'
+                    }
+                  >
+                    {tx.status}
+                  </span>
+                </div>
+                <div className="mt-1">
+                  {appealedIds.has(tx.id) ? (
+                    <p className="text-[11px] text-teal">Appeal submitted</p>
+                  ) : appealingId === tx.id ? (
+                    <AppealForm
+                      transactionId={tx.id}
+                      onCancel={() => setAppealingId(null)}
+                      onSubmitted={() => {
+                        setAppealedIds((prev) => new Set(prev).add(tx.id));
+                        setAppealingId(null);
+                      }}
+                    />
+                  ) : (
+                    <button
+                      onClick={() => setAppealingId(tx.id)}
+                      className="text-[11px] text-muted underline hover:text-paper"
+                    >
+                      Appeal this transaction
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
             {transactions.length === 0 && <p className="text-muted text-sm">No activity yet.</p>}
@@ -84,6 +109,61 @@ export default function WalletPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+function AppealForm({
+  transactionId,
+  onCancel,
+  onSubmitted,
+}: {
+  transactionId: string;
+  onCancel: () => void;
+  onSubmitted: () => void;
+}) {
+  const [reason, setReason] = useState('');
+  const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  async function submit() {
+    setError('');
+    setSubmitting(true);
+    try {
+      await apiFetch('/appeals', {
+        method: 'POST',
+        body: JSON.stringify({ transactionId, reason }),
+      });
+      onSubmitted();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="mt-2 space-y-2">
+      <textarea
+        value={reason}
+        onChange={(e) => setReason(e.target.value)}
+        placeholder="Explain why you're appealing this transaction..."
+        rows={3}
+        className="w-full bg-surfaceRaised rounded-md px-3 py-2 text-sm text-paper outline-none focus:ring-2 focus:ring-teal"
+      />
+      {error && <p className="text-red-400 text-xs">{error}</p>}
+      <div className="flex gap-2">
+        <button
+          onClick={submit}
+          disabled={submitting || reason.trim().length < 10}
+          className="text-xs font-medium px-3 py-1.5 rounded bg-gradient-to-br from-gold to-teal text-ink disabled:opacity-50"
+        >
+          Submit appeal
+        </button>
+        <button onClick={onCancel} className="text-xs font-medium px-3 py-1.5 rounded border border-white/15 text-paper">
+          Cancel
+        </button>
+      </div>
+    </div>
   );
 }
 
