@@ -21,6 +21,7 @@ const adminLinks = [
     { href: '/admin/kyc', label: 'KYC review', description: 'Approve or reject identity verification' },
   { href: '/admin/merchant-applications', label: 'Merchant applications', description: 'Review requests to become a merchant' },
   { href: '/admin/wallet', label: 'Deposits & withdrawals', description: 'Confirm pending on-chain transactions' },
+  { href: '/admin/appeals', label: 'Transaction appeals', description: 'Review appeals users raised on their transactions' },
   { href: '/admin/revenue', label: 'Revenue', description: 'Platform commission collected' },
   { href: '/admin/support', label: 'Support tickets', description: 'Respond to user help requests' },
   { href: '/admin/audit-log', label: 'Audit log', description: 'Record of sensitive admin actions' },
