@@ -50,6 +50,15 @@ export class UsersService {
   }
 
   /**
+   * Grants or revokes SUPPORT staff access (support tickets only — no
+   * wallet, KYC, dispute, or user-management routes). Can't be used to
+   * grant ADMIN; see SetRoleDto for why.
+   */
+  setRole(userId: string, role: 'USER' | 'SUPPORT') {
+    return this.prisma.user.update({ where: { id: userId }, data: { role: role as Role } });
+  }
+
+  /**
    * Lets ops promote an account to ADMIN just by listing its email in the
    * ADMIN_EMAILS env var, instead of hand-editing the database — applied
    * on every login so it also catches accounts that already existed.
