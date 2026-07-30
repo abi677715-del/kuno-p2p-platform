@@ -410,7 +410,9 @@ export class TradesService {
 
     const { trade } = dispute;
 
-    if (dto.outcome === DisputeOutcome.RELEASE_TO_BUYER) {
+        if (dto.outcome === DisputeOutcome.RELEASE_TO_BUYER) {
+      await this.kycService.assertApproved(trade.buyerId);
+
       const feePercent = await this.resolveFeePercent(trade);
       const releaseResult = await this.walletService.releaseFunds(
         trade.sellerId,
