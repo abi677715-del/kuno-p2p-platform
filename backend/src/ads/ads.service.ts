@@ -3,6 +3,7 @@ import { PrismaService } from '../common/prisma.service';
 import { AdSide, AdStatus, AdPricingMode, Currency, TradeStatus } from '@prisma/client';
 import { CreateAdDto } from './dto/create-ad.dto';
 import { KycService } from '../kyc/kyc.service';
+import { UsersService } from '../users/users.service';
 
 function tierFor(completedTrades: number): string | null {
   if (completedTrades >= 50) return 'Top Merchant';
