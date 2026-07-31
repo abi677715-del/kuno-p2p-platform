@@ -8,6 +8,30 @@ import { NetworkIcon } from '@/components/NetworkIcon';
 
 type NetworkOption = { network: string; label: string };
 
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // Clipboard API can be blocked (e.g. insecure context) — fail silently, address is still selectable.
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      className="shrink-0 rounded-md border border-white/15 px-2.5 py-1 text-xs font-medium text-paper hover:border-white/30 transition-colors"
+    >
+      {copied ? 'Copied!' : 'Copy'}
+    </button>
+  );
+}
+
 export default function WalletPage() {
   const [wallets, setWallets] = useState<any[]>([]);
   const [networks, setNetworks] = useState<NetworkOption[]>([]);
@@ -264,9 +288,10 @@ function DepositCard({ networks, onSubmitted }: { networks: NetworkOption[]; onS
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={depositInfo.qrCodeDataUrl} alt="Deposit address QR code" width={160} height={160} />
           </div>
-          <p className="font-mono text-xs text-paper break-all bg-surfaceRaised rounded-md p-3 mb-4">
-            {depositInfo.address}
-          </p>
+          <div className="flex items-center gap-2 bg-surfaceRaised rounded-md p-3 mb-4">
+            <p className="font-mono text-xs text-paper break-all flex-1">{depositInfo.address}</p>
+            <CopyButton text={depositInfo.address} />
+          </div>
 
           <form onSubmit={handleSubmit} className="space-y-3">
             <input
