@@ -5,7 +5,7 @@
 :root {
   --font-display: 'Space Grotesk', sans-serif;
   --font-body: 'Inter', sans-serif;
-  --font-mono: 'IBM Plex Mono', monospace;
+    --font-mono: 'Times New Roman', Times, serif;
 }
 
 body {
