@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { formatAmount } from '@/lib/format';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
@@ -66,10 +67,21 @@ export default function DashboardPage() {
   const [ready, setReady] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [balance, setBalance] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [avatarError, setAvatarError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+
+  function loadBalance() {
+    fetch(`${API_URL}/wallet/balance`, { headers: { Authorization: `Bearer ${token}` } })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        const usdt = data?.find((w: any) => w.currency === 'USDT');
+        if (usdt) setBalance(usdt.balance);
+      })
+      .catch(() => {});
+  }
 
   function loadProfile() {
     fetch(`${API_URL}/users/me`, { headers: { Authorization: `Bearer ${token}` } })
@@ -93,6 +105,7 @@ export default function DashboardPage() {
     setIsAdmin(getRole() === 'ADMIN');
     setReady(true);
     loadProfile();
+    loadBalance();
   }, []);
 
   if (!ready) return null;
@@ -129,7 +142,15 @@ export default function DashboardPage() {
     <main className="min-h-screen bg-ink px-6 py-10 md:px-12">
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-8">
-          <h1 className="font-display font-bold text-2xl text-paper">Dashboard</h1>
+          <div>
+            <h1 className="font-display font-bold text-2xl text-paper">Dashboard</h1>
+            {balance !== null && (
+              <a href="/wallet" className="inline-block mt-1 hover:opacity-90 transition-opacity">
+                <span className="text-xs text-muted">Balance </span>
+                <span className="font-mono text-sm text-teal">{formatAmount(balance, 4)} USDT</span>
+              </a>
+            )}
+          </div>
 
           <div className="relative">
             <button
