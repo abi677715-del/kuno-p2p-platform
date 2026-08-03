@@ -10,7 +10,7 @@
 
 body {
   background-color: #0f1420;
-  background-image: linear-gradient(135deg, rgba(232, 163, 61, 0.34) 0%, #0f1420 42%, #0f1420 58%, rgba(11, 132, 87, 0.38) 100%);
+  background-image: linear-gradient(135deg, rgba(194, 163, 63, 0.34) 0%, #0f1420 42%, #0f1420 58%, rgba(75, 144, 78, 0.38) 100%);
   background-attachment: fixed;
   color: #f2f1ec;
 }
@@ -19,7 +19,7 @@ body {
    gold-to-teal diagonal is repeated here too, keeping it visible everywhere. */
 .bg-ink {
   background-color: #0f1420;
-  background-image: linear-gradient(135deg, rgba(232, 163, 61, 0.34) 0%, #0f1420 42%, #0f1420 58%, rgba(11, 132, 87, 0.38) 100%);
+  background-image: linear-gradient(135deg, rgba(194, 163, 63, 0.34) 0%, #0f1420 42%, #0f1420 58%, rgba(75, 144, 78, 0.38) 100%);
   background-attachment: fixed;
 }
 
