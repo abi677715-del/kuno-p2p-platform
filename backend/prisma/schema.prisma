@@ -141,7 +141,8 @@ model User {
   tradeMessages    TradeMessage[]
   disputesRaised   Dispute[]
   notifications    Notification[]
-    ticket        SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  supportTickets   SupportTicket[]
+  referredBy       User?            @relation("referrals", fields: [referredById], references: [id])
   referrals        User[]           @relation("referrals")
   relationsMade    UserRelation[]   @relation("relationOwner")
   relationsOfMe    UserRelation[]   @relation("relationTarget")
@@ -373,7 +374,7 @@ model SupportTicket {
 model SupportMessage {
   id            String        @id @default(uuid())
   ticketId      String
-  ticket        SupportTicket @relation(fields: [ticketId], references: [id])
+  ticket        SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   senderId      String
   sender        User          @relation(fields: [senderId], references: [id])
   message       String
