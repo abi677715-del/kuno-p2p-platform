@@ -60,6 +60,12 @@ export default function AdminSupportPage() {
     load();
   }
 
+  async function remove(id: string) {
+    if (!window.confirm('Delete this resolved ticket? This cannot be undone.')) return;
+    await apiFetch(`/support/admin/tickets/${id}`, { method: 'DELETE' });
+    load();
+  }
+
   return (
     <main className="min-h-screen bg-ink px-6 py-10 md:px-12">
       <div className="max-w-3xl mx-auto">
@@ -85,12 +91,19 @@ export default function AdminSupportPage() {
                 >
                   {openId === t.id ? 'Hide' : 'Open'} conversation
                 </button>
-                {t.status !== 'RESOLVED' && (
+                {t.status !== 'RESOLVED' ? (
                   <button
                     onClick={() => resolve(t.id)}
                     className="rounded-md bg-gradient-to-br from-gold to-teal px-3 py-1.5 text-ink text-sm font-medium hover:opacity-90 transition-opacity"
                   >
                     Mark resolved
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => remove(t.id)}
+                    className="rounded-md border border-red-400/40 px-3 py-1.5 text-red-400 text-sm font-medium hover:bg-red-400/10 transition-colors"
+                  >
+                    Delete
                   </button>
                 )}
               </div>
