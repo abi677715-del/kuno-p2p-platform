@@ -112,4 +112,17 @@ export class SupportService {
     });
     return updated;
   }
+
+  /** Only resolved tickets can be deleted — keeps anything still open from being lost by mistake. */
+  async deleteTicket(adminId: string, id: string) {
+    const ticket = await this.findTicketOrThrow(id);
+    if (ticket.status !== SupportTicketStatus.RESOLVED) {
+      throw new BadRequestException('Only resolved tickets can be deleted');
+    }
+    await this.prisma.supportTicket.delete({ where: { id } });
+    await this.prisma.adminAuditLog.create({
+      data: { adminId, action: 'SUPPORT_TICKET_DELETED', targetId: id },
+    });
+    return { ok: true };
+  }
 }
