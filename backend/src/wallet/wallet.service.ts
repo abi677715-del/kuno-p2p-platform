@@ -5,6 +5,7 @@ import * as QRCode from 'qrcode';
 import { addressForNetwork, configuredNetworks, NETWORK_LABELS } from './networks';
 import { isPlausibleAddress } from './address-format';
 import { generateTxCode } from './tx-code';
+import { gasFeeUsdt } from './withdrawal-fees';
 import { KycService } from '../kyc/kyc.service';
 
 const PLATFORM_ACCOUNT_EMAIL = 'platform@birrly.internal';
@@ -31,7 +32,11 @@ export class WalletService {
    * it on that network's explorer and confirms.
    */
   listSupportedNetworks() {
-    return configuredNetworks().map((network) => ({ network, label: NETWORK_LABELS[network] }));
+    return configuredNetworks().map((network) => ({
+      network,
+      label: NETWORK_LABELS[network],
+      withdrawalFeeUsdt: gasFeeUsdt(network),
+    }));
   }
 
   async getDepositAddress(network: Network) {
