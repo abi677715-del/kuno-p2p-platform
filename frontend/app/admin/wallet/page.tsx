@@ -3,6 +3,30 @@
 import { useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/api';
 
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // Clipboard API can be blocked (e.g. insecure context) — fail silently, text is still selectable.
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      className="shrink-0 rounded-md border border-white/15 px-2 py-0.5 text-[11px] font-medium text-paper hover:border-white/30 transition-colors"
+    >
+      {copied ? 'Copied!' : 'Copy'}
+    </button>
+  );
+}
+
 export default function AdminWalletPage() {
   const [deposits, setDeposits] = useState<any[]>([]);
   const [withdrawals, setWithdrawals] = useState<any[]>([]);
@@ -44,6 +68,7 @@ export default function AdminWalletPage() {
                 code={d.code}
                 email={d.wallet.user.email}
                 amount={d.amount}
+                network={d.network}
                 detail={d.referenceId}
                 detailLabel="tx hash"
                 onConfirm={() => act('deposits', d.id, 'confirm')}
@@ -66,6 +91,7 @@ export default function AdminWalletPage() {
                 code={w.code}
                 email={w.wallet.user.email}
                 amount={w.amount}
+                network={w.network}
                 detail={w.referenceId}
                 detailLabel="destination"
                 onConfirm={() => act('withdrawals', w.id, 'confirm')}
@@ -84,6 +110,7 @@ function Row({
   code,
   email,
   amount,
+  network,
   detail,
   detailLabel,
   onConfirm,
@@ -92,6 +119,7 @@ function Row({
   code?: string;
   email: string;
   amount: string;
+  network?: string;
   detail: string;
   detailLabel: string;
   onConfirm: () => void;
@@ -99,11 +127,21 @@ function Row({
 }) {
   return (
     <div className="bg-surface border border-white/10 rounded-xl p-5 flex items-center justify-between gap-4">
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <p className="text-paper font-medium">{email}</p>
         {code && <p className="font-mono text-xs text-teal">{code}</p>}
-        <p className="font-mono text-sm text-gold">{amount} USDT</p>
-        <p className="text-xs text-muted truncate">{detailLabel}: {detail}</p>
+        <div className="flex items-center gap-2 mt-0.5">
+          <p className="font-mono text-sm text-gold">{amount} USDT</p>
+          {network && (
+            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-teal/20 text-teal uppercase tracking-wide">
+              {network}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2 mt-1">
+          <p className="text-xs text-muted truncate">{detailLabel}: {detail}</p>
+          <CopyButton text={detail} />
+        </div>
       </div>
       <div className="flex gap-2 shrink-0">
         <button onClick={onConfirm} className="rounded-md bg-gradient-to-br from-gold to-teal px-3 py-1.5 text-ink text-sm font-medium hover:opacity-90 transition-opacity">
