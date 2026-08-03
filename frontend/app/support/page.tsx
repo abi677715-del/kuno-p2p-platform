@@ -22,12 +22,35 @@ const faqs = [
   },
 ];
 
+function resizeImage(file: File, maxSize = 1024): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = reject;
+      img.onload = () => {
+        const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width * scale;
+        canvas.height = img.height * scale;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', 0.85));
+      };
+      img.src = reader.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function SupportPage() {
   const [tickets, setTickets] = useState<any[]>([]);
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [openId, setOpenId] = useState<string | null>(null);
 
   async function loadTickets() {
     try {
@@ -120,14 +143,20 @@ export default function SupportPage() {
             <h2 className="font-display font-medium text-paper mb-4">Your requests</h2>
             <div className="space-y-3">
               {tickets.map((t) => (
-                <div key={t.id} className="flex items-start justify-between gap-4 text-sm">
-                  <div>
-                    <p className="text-paper font-medium">{t.subject}</p>
-                    <p className="text-muted text-xs mt-1">{t.message}</p>
-                  </div>
-                  <span className={t.status === 'RESOLVED' ? 'text-teal text-xs shrink-0' : 'text-gold text-xs shrink-0'}>
-                    {t.status}
-                  </span>
+                <div key={t.id} className="border-b border-white/5 last:border-0 pb-3 last:pb-0">
+                  <button
+                    onClick={() => setOpenId(openId === t.id ? null : t.id)}
+                    className="w-full flex items-start justify-between gap-4 text-sm text-left"
+                  >
+                    <div>
+                      <p className="text-paper font-medium">{t.subject}</p>
+                      <p className="text-muted text-xs mt-1">{t.message}</p>
+                    </div>
+                    <span className={t.status === 'RESOLVED' ? 'text-teal text-xs shrink-0' : 'text-gold text-xs shrink-0'}>
+                      {t.status}
+                    </span>
+                  </button>
+                  {openId === t.id && <TicketThread ticketId={t.id} />}
                 </div>
               ))}
             </div>
@@ -135,5 +164,110 @@ export default function SupportPage() {
         )}
       </div>
     </main>
+  );
+}
+
+function TicketThread({ ticketId }: { ticketId: string }) {
+  const [messages, setMessages] = useState<any[]>([]);
+  const [text, setText] = useState('');
+  const [attachment, setAttachment] = useState<string | null>(null);
+  const [error, setError] = useState('');
+  const [sending, setSending] = useState(false);
+
+  async function load() {
+    try {
+      setMessages(await apiFetch(`/support/tickets/${ticketId}/messages`));
+    } catch (err: any) {
+      setError(err.message);
+    }
+  }
+
+  useEffect(() => {
+    load();
+  }, [ticketId]);
+
+  async function handleFilePick(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      setAttachment(await resizeImage(file));
+    } catch {
+      setError('Could not attach that file — try a photo instead.');
+    }
+  }
+
+  async function send() {
+    if (!text.trim() && !attachment) return;
+    setSending(true);
+    setError('');
+    try {
+      await apiFetch(`/support/tickets/${ticketId}/messages`, {
+        method: 'POST',
+        body: JSON.stringify({ message: text || undefined, attachmentUrl: attachment ?? undefined }),
+      });
+      setText('');
+      setAttachment(null);
+      load();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <div className="mt-3 bg-surfaceRaised rounded-lg p-3 space-y-3">
+      <div className="space-y-2 max-h-64 overflow-y-auto">
+        {messages.map((m) => (
+          <div key={m.id} className="text-xs">
+            <span className="text-muted">{m.sender?.role === 'USER' ? 'You' : 'Support'} · {new Date(m.createdAt).toLocaleString()}</span>
+            {m.message && <p className="text-paper mt-0.5">{m.message}</p>}
+            {m.attachmentUrl && (
+              <a href={m.attachmentUrl} target="_blank" rel="noopener noreferrer">
+                <img src={m.attachmentUrl} alt="Attachment" className="mt-1 max-h-40 rounded-md border border-white/10" />
+              </a>
+            )}
+          </div>
+        ))}
+        {messages.length === 0 && <p className="text-muted text-xs">No messages yet.</p>}
+      </div>
+
+      {attachment && (
+        <div className="flex items-center gap-2 bg-surface rounded-md p-2">
+          <img src={attachment} alt="Pending attachment" className="h-10 w-10 object-cover rounded" />
+          <span className="text-xs text-muted flex-1">Attached — will send with your next message</span>
+          <button type="button" onClick={() => setAttachment(null)} className="text-xs text-red-400 font-medium">
+            Remove
+          </button>
+        </div>
+      )}
+
+      {error && <p className="text-red-400 text-xs">{error}</p>}
+
+      <div className="flex gap-2">
+        <input type="file" id={`file-${ticketId}`} accept="image/*" onChange={handleFilePick} className="hidden" />
+        <label
+          htmlFor={`file-${ticketId}`}
+          className="rounded-md border border-white/15 px-3 py-2 text-paper text-sm font-medium cursor-pointer shrink-0"
+          title="Attach a photo or document"
+        >
+          📎
+        </label>
+        <input
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="Write a message..."
+          className="flex-1 bg-surface rounded-md px-3 py-2 text-sm text-paper outline-none focus:ring-2 focus:ring-teal"
+        />
+        <button
+          onClick={send}
+          disabled={sending || (!text.trim() && !attachment)}
+          className="rounded-md bg-gradient-to-br from-gold to-teal px-3 py-2 text-ink text-sm font-medium disabled:opacity-50"
+        >
+          Send
+        </button>
+      </div>
+    </div>
   );
 }
