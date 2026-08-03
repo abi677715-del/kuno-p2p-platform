@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../common/roles.guard';
 import { Roles } from '../common/roles.decorator';
@@ -70,5 +70,12 @@ export class SupportController {
   @Roles(Role.ADMIN, Role.SUPPORT)
   resolve(@Req() req: any, @Param('id') id: string) {
     return this.supportService.resolve(req.user.userId, id);
+  }
+
+  @Delete('admin/tickets/:id')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN, Role.SUPPORT)
+  deleteTicket(@Req() req: any, @Param('id') id: string) {
+    return this.supportService.deleteTicket(req.user.userId, id);
   }
 }
