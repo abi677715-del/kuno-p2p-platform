@@ -141,8 +141,7 @@ model User {
   tradeMessages    TradeMessage[]
   disputesRaised   Dispute[]
   notifications    Notification[]
-  supportTickets   SupportTicket[]
-  referredBy       User?            @relation("referrals", fields: [referredById], references: [id])
+    ticket        SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   referrals        User[]           @relation("referrals")
   relationsMade    UserRelation[]   @relation("relationOwner")
   relationsOfMe    UserRelation[]   @relation("relationTarget")
