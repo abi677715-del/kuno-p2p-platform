@@ -6,7 +6,7 @@ import { formatAmount } from '@/lib/format';
 import { shortFor } from '@/lib/networks';
 import { NetworkIcon } from '@/components/NetworkIcon';
 
-type NetworkOption = { network: string; label: string };
+type NetworkOption = { network: string; label: string; withdrawalFeeUsdt?: number };
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
@@ -293,6 +293,11 @@ function DepositCard({ networks, onSubmitted }: { networks: NetworkOption[]; onS
             <CopyButton text={depositInfo.address} />
           </div>
 
+          <p className="text-xs text-muted mb-4">
+            No fee from us on deposits — you'll only pay the usual blockchain network fee from your own wallet
+            or exchange when sending, same as any other transfer.
+          </p>
+
           <form onSubmit={handleSubmit} className="space-y-3">
             <input
               placeholder="Amount sent (USDT)"
@@ -327,6 +332,11 @@ function WithdrawCard({ networks, onSubmitted }: { networks: NetworkOption[]; on
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
 
+  const selected = networks.find((n) => n.network === network);
+  const fee = selected?.withdrawalFeeUsdt ?? 0;
+  const amountNum = parseFloat(amount);
+  const netAmount = !Number.isNaN(amountNum) && amountNum > fee ? amountNum - fee : null;
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
@@ -352,6 +362,14 @@ function WithdrawCard({ networks, onSubmitted }: { networks: NetworkOption[]; on
       </p>
       <form onSubmit={handleSubmit} className="space-y-3">
         <NetworkSelect networks={networks} value={network} onChange={setNetwork} />
+
+        {fee > 0 && (
+          <p className="text-xs text-gold bg-gold/10 border border-gold/20 rounded-md px-3 py-2">
+            Network fee: {formatAmount(fee, 4)} USDT — covers the blockchain gas cost to send your withdrawal.
+            {netAmount !== null && ` You'll receive ≈ ${formatAmount(netAmount, 4)} USDT.`}
+          </p>
+        )}
+
         <input
           placeholder="Amount (USDT)"
           value={amount}
