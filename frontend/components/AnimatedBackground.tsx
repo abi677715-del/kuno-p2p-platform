@@ -35,14 +35,14 @@ export default function AnimatedBackground() {
       el.height = height * dpr;
       ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-      const density = width < 640 ? 22000 : 14000;
-      const count = Math.min(70, Math.max(18, Math.round((width * height) / density)));
+      const density = width < 640 ? 16000 : 10000;
+      const count = Math.min(90, Math.max(24, Math.round((width * height) / density)));
       particles = Array.from({ length: count }, () => ({
         x: Math.random() * width,
         y: Math.random() * height,
-        vx: (Math.random() - 0.5) * 0.25,
-        vy: (Math.random() - 0.5) * 0.25,
-        r: Math.random() * 1.6 + 0.8,
+        vx: (Math.random() - 0.5) * 0.45,
+        vy: (Math.random() - 0.5) * 0.45,
+        r: Math.random() * 2.2 + 1.2,
         color: colors[Math.random() < 0.5 ? 0 : 1],
       }));
     }
@@ -68,7 +68,7 @@ export default function AnimatedBackground() {
         if (p.y < 0 || p.y > height) p.vy *= -1;
       }
 
-      const linkDist = width < 640 ? 90 : 120;
+      const linkDist = width < 640 ? 110 : 150;
       for (let i = 0; i < particles.length; i++) {
         for (let j = i + 1; j < particles.length; j++) {
           const a = particles[i];
@@ -80,8 +80,8 @@ export default function AnimatedBackground() {
             ctx!.beginPath();
             ctx!.moveTo(a.x, a.y);
             ctx!.lineTo(b.x, b.y);
-            const alpha = (1 - dist / linkDist) * 0.15;
-            ctx!.strokeStyle = `rgba(150, 176, 160, ${alpha})`;
+            const alpha = (1 - dist / linkDist) * 0.35;
+            ctx!.strokeStyle = `rgba(180, 200, 185, ${alpha})`;
             ctx!.lineWidth = 1;
             ctx!.stroke();
           }
@@ -90,8 +90,12 @@ export default function AnimatedBackground() {
 
       for (const p of particles) {
         ctx!.beginPath();
+        ctx!.arc(p.x, p.y, p.r * 3, 0, Math.PI * 2);
+        ctx!.fillStyle = p.color + '22';
+        ctx!.fill();
+        ctx!.beginPath();
         ctx!.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx!.fillStyle = p.color + '99';
+        ctx!.fillStyle = p.color + 'DD';
         ctx!.fill();
       }
 
@@ -129,7 +133,7 @@ export default function AnimatedBackground() {
   return (
     <canvas
       ref={canvasRef}
-      className="pointer-events-none fixed inset-0 z-0 h-full w-full opacity-70"
+      className="pointer-events-none fixed inset-0 z-0 h-full w-full"
       aria-hidden
     />
   );
