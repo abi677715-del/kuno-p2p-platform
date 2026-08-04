@@ -12,9 +12,12 @@ function tierFor(completedTrades: number): string | null {
   return null;
 }
 
+/** Merchant stats look at the trailing window only — a badge earned a year ago and never touched since is a stale, misleading trust signal. */
+const MERCHANT_STATS_WINDOW_DAYS = 30;
+
 @Injectable()
 export class AdsService {
-    constructor(
+  constructor(
     private prisma: PrismaService,
     private kycService: KycService,
     private usersService: UsersService,
@@ -36,7 +39,7 @@ export class AdsService {
     }
   }
 
-   async create(userId: string, dto: CreateAdDto) {
+  async create(userId: string, dto: CreateAdDto) {
     await this.kycService.assertApproved(userId);
     await this.usersService.assertTermsAccepted(userId);
 
@@ -105,10 +108,12 @@ export class AdsService {
 
   /**
    * Trade count, completion rate, and average release time (as seller) for
-   * the ad's poster, computed across their trade history.
+   * the ad's poster, computed over the trailing MERCHANT_STATS_WINDOW_DAYS —
+   * see the constant's comment for why this isn't all-time.
    */
   private async attachMerchantStats<T extends { user: { id: string } }>(ads: T[]): Promise<T[]> {
     const userIds = [...new Set(ads.map((a) => a.user.id))];
+    const windowStart = new Date(Date.now() - MERCHANT_STATS_WINDOW_DAYS * 24 * 60 * 60 * 1000);
     const statsByUser = new Map<
       string,
       { completedTrades: number; completionRate: number | null; tier: string | null; avgReleaseMinutes: number | null }
@@ -117,15 +122,24 @@ export class AdsService {
     await Promise.all(
       userIds.map(async (userId) => {
         const [completed, finished, releasedAsSeller] = await Promise.all([
-          this.prisma.trade.count({ where: { OR: [{ buyerId: userId }, { sellerId: userId }], status: TradeStatus.COMPLETED } }),
+          this.prisma.trade.count({
+            where: { OR: [{ buyerId: userId }, { sellerId: userId }], status: TradeStatus.COMPLETED, createdAt: { gte: windowStart } },
+          }),
           this.prisma.trade.count({
             where: {
               OR: [{ buyerId: userId }, { sellerId: userId }],
               status: { in: [TradeStatus.COMPLETED, TradeStatus.CANCELLED, TradeStatus.DISPUTED] },
+              createdAt: { gte: windowStart },
             },
           }),
           this.prisma.trade.findMany({
-            where: { sellerId: userId, status: TradeStatus.COMPLETED, paidAt: { not: null }, completedAt: { not: null } },
+            where: {
+              sellerId: userId,
+              status: TradeStatus.COMPLETED,
+              paidAt: { not: null },
+              completedAt: { not: null },
+              createdAt: { gte: windowStart },
+            },
             select: { paidAt: true, completedAt: true },
             take: 50,
             orderBy: { completedAt: 'desc' },
@@ -148,6 +162,25 @@ export class AdsService {
     );
 
     return ads.map((ad) => ({ ...ad, user: { ...ad.user, ...statsByUser.get(ad.user.id) } }));
+  }
+
+  /** Public storefront: a trader's stats plus their currently active ads, so buyers can vet someone in one place. */
+  async getTraderProfile(traderId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: traderId },
+      select: { id: true, email: true, fullName: true, createdAt: true, lastSeenAt: true, isMerchant: true },
+    });
+    if (!user) throw new NotFoundException('Trader not found');
+
+    const [{ user: userWithStats }] = await this.attachMerchantStats([{ user }]);
+
+    const ads = await this.prisma.ad.findMany({
+      where: { userId: traderId, status: AdStatus.ACTIVE },
+      orderBy: { createdAt: 'desc' },
+    });
+    const adsWithPrice = await this.attachEffectivePrice(ads);
+
+    return { ...userWithStats, ads: adsWithPrice };
   }
 
   async findActive(side?: AdSide) {
