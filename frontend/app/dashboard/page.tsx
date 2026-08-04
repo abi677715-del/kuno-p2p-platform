@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { formatAmount } from '@/lib/format';
+import AnimatedBackground from '@/components/AnimatedBackground';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
@@ -140,6 +141,7 @@ export default function DashboardPage() {
 
   return (
     <main className="min-h-screen bg-ink px-6 py-10 md:px-12">
+      <AnimatedBackground />
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-8">
           <div>
