@@ -22,6 +22,7 @@ type Ad = {
   paymentMethods: string[];
   description?: string;
   user: {
+    id: string;
     fullName?: string;
     lastSeenAt?: string;
     completedTrades?: number;
@@ -224,7 +225,16 @@ export default function MarketplacePage() {
                         isOnline(ad.user.lastSeenAt) ? 'bg-teal' : 'bg-muted'
                       }`}
                     />
-                    <p className="text-paper font-medium">{displayName(ad.user)}</p>
+                    <span
+                      className="text-paper font-medium hover:underline"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        window.location.href = `/traders/${ad.user.id}`;
+                      }}
+                    >
+                      {displayName(ad.user)}
+                    </span>
                     <span className="text-[11px] text-muted">
                       {isOnline(ad.user.lastSeenAt) ? 'Online' : `Last seen ${lastSeenLabel(ad.user.lastSeenAt)}`}
                     </span>
