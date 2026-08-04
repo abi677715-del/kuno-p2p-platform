@@ -98,7 +98,9 @@ export default function AdDetailPage() {
         </div>
         <div className="flex items-center gap-1.5 mt-1">
           <span className={`inline-block h-1.5 w-1.5 rounded-full ${isOnline(ad.user.lastSeenAt) ? 'bg-teal' : 'bg-muted'}`} />
-          <p className="text-paper font-medium">{displayName(ad.user)}</p>
+          <a href={`/traders/${ad.user.id}`} className="text-paper font-medium hover:underline">
+            {displayName(ad.user)}
+          </a>
           <span className="text-[11px] text-muted">{isOnline(ad.user.lastSeenAt) ? 'Online' : 'Offline'}</span>
         </div>
         <div className="flex items-center gap-1.5 mt-1 flex-wrap">
