@@ -33,12 +33,14 @@ export default function LandingPage() {
   return (
     <main className="overflow-x-hidden">
       <AnimatedBackground />
-      <Nav />
-      <Hero usdt={usdt} setUsdt={setUsdt} etb={etb} rate={rate} isLive={rateSampleSize > 0} />
-      <HowItWorks />
-      <Trust />
-      <Cta />
-      <Footer />
+      <div className="relative z-10">
+        <Nav />
+        <Hero usdt={usdt} setUsdt={setUsdt} etb={etb} rate={rate} isLive={rateSampleSize > 0} />
+        <HowItWorks />
+        <Trust />
+        <Cta />
+        <Footer />
+      </div>
     </main>
   );
 }
