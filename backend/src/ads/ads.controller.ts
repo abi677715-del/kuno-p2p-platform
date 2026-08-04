@@ -24,11 +24,15 @@ export class AdsController {
     return this.adsService.findMine(req.user.userId);
   }
 
+    @Get('trader/:id')
+  getTraderProfile(@Param('id') id: string) {
+    return this.adsService.getTraderProfile(id);
+  }
+
   @Get(':id')
   getOne(@Param('id') id: string) {
     return this.adsService.findById(id);
   }
-
   @Post()
   @UseGuards(JwtAuthGuard)
   create(@Req() req: any, @Body() dto: CreateAdDto) {
