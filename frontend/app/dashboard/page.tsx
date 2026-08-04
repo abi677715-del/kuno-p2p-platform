@@ -142,7 +142,7 @@ export default function DashboardPage() {
   return (
     <main className="min-h-screen bg-ink px-6 py-10 md:px-12">
       <AnimatedBackground />
-      <div className="max-w-4xl mx-auto">
+      <div className="relative z-10 max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="font-display font-bold text-2xl text-paper">Dashboard</h1>
