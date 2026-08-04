@@ -3,9 +3,9 @@
 import { useEffect, useRef } from 'react';
 
 /**
- * Lightweight canvas particle-network animation (no 3D/WebGL library) — nodes
- * drifting and linking when close, echoing "peer-to-peer" without the bundle
- * size or low-end-mobile risk a real 3D engine would add.
+ * Canvas starfield in the brand's gold/teal — large four-point stars that
+ * drift slowly and twinkle. Plain 2D canvas, no 3D/WebGL library, so it stays
+ * cheap on low-end phones.
  */
 export default function AnimatedBackground() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -17,12 +17,21 @@ export default function AnimatedBackground() {
     if (!ctx) return;
 
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const colors = ['#E8A33D', '#0B8457'];
+    const colors = ['#E8A33D', '#2FA971'];
 
     let width = 0;
     let height = 0;
     let dpr = Math.min(window.devicePixelRatio || 1, 2);
-    let particles: { x: number; y: number; vx: number; vy: number; r: number; color: string }[] = [];
+    let stars: {
+      x: number;
+      y: number;
+      vx: number;
+      vy: number;
+      size: number;
+      color: string;
+      phase: number;
+      speed: number;
+    }[] = [];
     let frameId = 0;
     let running = true;
 
@@ -35,70 +44,69 @@ export default function AnimatedBackground() {
       el.height = height * dpr;
       ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-      const density = width < 640 ? 16000 : 10000;
-      const count = Math.min(90, Math.max(24, Math.round((width * height) / density)));
-      particles = Array.from({ length: count }, () => ({
+      const count = width < 640 ? 14 : 22;
+      stars = Array.from({ length: count }, (_, i) => ({
         x: Math.random() * width,
         y: Math.random() * height,
-        vx: (Math.random() - 0.5) * 0.45,
-        vy: (Math.random() - 0.5) * 0.45,
-        r: Math.random() * 2.2 + 1.2,
-        color: colors[Math.random() < 0.5 ? 0 : 1],
+        vx: (Math.random() - 0.5) * 0.3,
+        vy: (Math.random() - 0.5) * 0.3,
+        // a few hero stars are extra large, the rest medium
+        size: i < count / 4 ? Math.random() * 22 + 26 : Math.random() * 12 + 10,
+        color: colors[Math.random() < 0.55 ? 0 : 1],
+        phase: Math.random() * Math.PI * 2,
+        speed: Math.random() * 0.015 + 0.008,
       }));
     }
 
-    function drawStatic() {
+    /** Classic four-point sparkle: points pulled toward the center with quadratic curves. */
+    function drawStar(x: number, y: number, size: number, color: string, alpha: number) {
+      const c = ctx!;
+      const pinch = size * 0.18;
+
+      const glow = c.createRadialGradient(x, y, 0, x, y, size * 1.6);
+      glow.addColorStop(0, color + '55');
+      glow.addColorStop(1, color + '00');
+      c.globalAlpha = alpha;
+      c.fillStyle = glow;
+      c.beginPath();
+      c.arc(x, y, size * 1.6, 0, Math.PI * 2);
+      c.fill();
+
+      c.fillStyle = color;
+      c.beginPath();
+      c.moveTo(x, y - size);
+      c.quadraticCurveTo(x + pinch, y - pinch, x + size, y);
+      c.quadraticCurveTo(x + pinch, y + pinch, x, y + size);
+      c.quadraticCurveTo(x - pinch, y + pinch, x - size, y);
+      c.quadraticCurveTo(x - pinch, y - pinch, x, y - size);
+      c.closePath();
+      c.fill();
+      c.globalAlpha = 1;
+    }
+
+    function drawFrame(animate: boolean) {
       ctx!.clearRect(0, 0, width, height);
-      for (const p of particles) {
-        ctx!.beginPath();
-        ctx!.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx!.fillStyle = p.color + '55';
-        ctx!.fill();
+      for (const s of stars) {
+        if (animate) {
+          s.x += s.vx;
+          s.y += s.vy;
+          s.phase += s.speed;
+          const margin = s.size * 2;
+          if (s.x < -margin) s.x = width + margin;
+          if (s.x > width + margin) s.x = -margin;
+          if (s.y < -margin) s.y = height + margin;
+          if (s.y > height + margin) s.y = -margin;
+        }
+        // twinkle between dim and bright
+        const alpha = 0.25 + (Math.sin(s.phase) + 1) * 0.3;
+        const size = s.size * (0.85 + (Math.sin(s.phase) + 1) * 0.075);
+        drawStar(s.x, s.y, size, s.color, alpha);
       }
     }
 
     function tick() {
       if (!running) return;
-      ctx!.clearRect(0, 0, width, height);
-
-      for (const p of particles) {
-        p.x += p.vx;
-        p.y += p.vy;
-        if (p.x < 0 || p.x > width) p.vx *= -1;
-        if (p.y < 0 || p.y > height) p.vy *= -1;
-      }
-
-      const linkDist = width < 640 ? 110 : 150;
-      for (let i = 0; i < particles.length; i++) {
-        for (let j = i + 1; j < particles.length; j++) {
-          const a = particles[i];
-          const b = particles[j];
-          const dx = a.x - b.x;
-          const dy = a.y - b.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < linkDist) {
-            ctx!.beginPath();
-            ctx!.moveTo(a.x, a.y);
-            ctx!.lineTo(b.x, b.y);
-            const alpha = (1 - dist / linkDist) * 0.35;
-            ctx!.strokeStyle = `rgba(180, 200, 185, ${alpha})`;
-            ctx!.lineWidth = 1;
-            ctx!.stroke();
-          }
-        }
-      }
-
-      for (const p of particles) {
-        ctx!.beginPath();
-        ctx!.arc(p.x, p.y, p.r * 3, 0, Math.PI * 2);
-        ctx!.fillStyle = p.color + '22';
-        ctx!.fill();
-        ctx!.beginPath();
-        ctx!.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx!.fillStyle = p.color + 'DD';
-        ctx!.fill();
-      }
-
+      drawFrame(true);
       frameId = requestAnimationFrame(tick);
     }
 
@@ -114,7 +122,7 @@ export default function AnimatedBackground() {
 
     resize();
     if (reduceMotion) {
-      drawStatic();
+      drawFrame(false);
     } else {
       frameId = requestAnimationFrame(tick);
     }
