@@ -11,7 +11,8 @@
     "next": "14.2.35",
     "react": "18.3.1",
     "react-dom": "18.3.1",
-    "socket.io-client": "^4.7.5"
+    "socket.io-client": "^4.7.5",
+    "next-pwa": "^6.6.0"
   },
   "devDependencies": {
     "@types/node": "20.14.0",
