@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { PAYMENT_METHODS, colorFor, initialsFor } from '@/lib/paymentMethods';
+import AnimatedBackground from '@/components/AnimatedBackground';
 
 const FALLBACK_RATE = 123.4; // used until the live rate loads, or if it fails to load
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
@@ -31,6 +32,7 @@ export default function LandingPage() {
 
   return (
     <main className="overflow-x-hidden">
+      <AnimatedBackground />
       <Nav />
       <Hero usdt={usdt} setUsdt={setUsdt} etb={etb} rate={rate} isLive={rateSampleSize > 0} />
       <HowItWorks />
