@@ -65,7 +65,13 @@ export default function TraderProfilePage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-3 mt-5">
+          <div className="grid grid-cols-4 gap-3 mt-5">
+            <div className="bg-surfaceRaised rounded-md p-3 text-center">
+              <p className="text-lg font-mono text-paper">
+                {trader.avgRating !== null && trader.avgRating !== undefined ? `★ ${trader.avgRating}` : '—'}
+              </p>
+              <p className="text-[11px] text-muted mt-0.5">Rating ({trader.ratingCount ?? 0})</p>
+            </div>
             <div className="bg-surfaceRaised rounded-md p-3 text-center">
               <p className="text-lg font-mono text-paper">{trader.completedTrades ?? 0}</p>
               <p className="text-[11px] text-muted mt-0.5">Trades (30d)</p>
@@ -84,6 +90,24 @@ export default function TraderProfilePage() {
             Member since {new Date(trader.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long' })}
           </p>
         </div>
+
+        {trader.recentRatings?.length > 0 && (
+          <div>
+            <h2 className="font-display font-medium text-paper mb-3">Recent reviews</h2>
+            <div className="space-y-3">
+              {trader.recentRatings.map((r: any, i: number) => (
+                <div key={i} className="bg-surface border border-white/10 rounded-xl p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-gold text-sm">{'★'.repeat(r.stars)}{'☆'.repeat(5 - r.stars)}</span>
+                    <span className="text-[11px] text-muted">{new Date(r.createdAt).toLocaleDateString()}</span>
+                  </div>
+                  {r.comment && <p className="text-sm text-paper/90 mt-1.5">{r.comment}</p>}
+                  <p className="text-[11px] text-muted mt-1">— {r.rater?.fullName ?? 'Trader'}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div>
           <h2 className="font-display font-medium text-paper mb-3">Active offers</h2>
