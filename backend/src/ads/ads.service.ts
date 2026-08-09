@@ -4,13 +4,7 @@ import { AdSide, AdStatus, AdPricingMode, Currency, TradeStatus } from '@prisma/
 import { CreateAdDto } from './dto/create-ad.dto';
 import { KycService } from '../kyc/kyc.service';
 import { UsersService } from '../users/users.service';
-
-function tierFor(completedTrades: number): string | null {
-  if (completedTrades >= 50) return 'Top Merchant';
-  if (completedTrades >= 10) return 'Verified';
-  if (completedTrades >= 1) return 'Trader';
-  return null;
-}
+import { tierFor } from '../common/trader-tier';
 
 /** Merchant stats look at the trailing window only — a badge earned a year ago and never touched since is a stale, misleading trust signal. */
 const MERCHANT_STATS_WINDOW_DAYS = 30;
@@ -116,12 +110,19 @@ export class AdsService {
     const windowStart = new Date(Date.now() - MERCHANT_STATS_WINDOW_DAYS * 24 * 60 * 60 * 1000);
     const statsByUser = new Map<
       string,
-      { completedTrades: number; completionRate: number | null; tier: string | null; avgReleaseMinutes: number | null }
+      {
+        completedTrades: number;
+        completionRate: number | null;
+        tier: string | null;
+        avgReleaseMinutes: number | null;
+        avgRating: number | null;
+        ratingCount: number;
+      }
     >();
 
     await Promise.all(
       userIds.map(async (userId) => {
-        const [completed, finished, releasedAsSeller] = await Promise.all([
+        const [completed, finished, releasedAsSeller, ratingAgg] = await Promise.all([
           this.prisma.trade.count({
             where: { OR: [{ buyerId: userId }, { sellerId: userId }], status: TradeStatus.COMPLETED, createdAt: { gte: windowStart } },
           }),
@@ -144,6 +145,13 @@ export class AdsService {
             take: 50,
             orderBy: { completedAt: 'desc' },
           }),
+          // Ratings are all-time, not windowed — unlike the trade-count tier, a
+          // trust score shouldn't reset just because trading slowed down.
+          this.prisma.tradeRating.aggregate({
+            where: { ratedUserId: userId },
+            _avg: { stars: true },
+            _count: true,
+          }),
         ]);
         const avgReleaseMinutes = releasedAsSeller.length
           ? Math.round(
@@ -157,6 +165,8 @@ export class AdsService {
           completionRate: finished > 0 ? Math.round((completed / finished) * 100) : null,
           tier: tierFor(completed),
           avgReleaseMinutes,
+          avgRating: ratingAgg._count > 0 ? Math.round((ratingAgg._avg.stars ?? 0) * 10) / 10 : null,
+          ratingCount: ratingAgg._count,
         });
       }),
     );
@@ -180,7 +190,14 @@ export class AdsService {
     });
     const adsWithPrice = await this.attachEffectivePrice(ads);
 
-    return { ...userWithStats, ads: adsWithPrice };
+    const recentRatings = await this.prisma.tradeRating.findMany({
+      where: { ratedUserId: traderId, comment: { not: null } },
+      select: { stars: true, comment: true, createdAt: true, rater: { select: { fullName: true } } },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    });
+
+    return { ...userWithStats, ads: adsWithPrice, recentRatings };
   }
 
   async findActive(side?: AdSide) {
