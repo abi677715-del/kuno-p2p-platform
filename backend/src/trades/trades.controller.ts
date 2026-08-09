@@ -9,6 +9,7 @@ import { DisputeTradeDto } from './dto/dispute-trade.dto';
 import { SendMessageDto } from './dto/send-message.dto';
 import { ConfirmPaymentDto } from './dto/confirm-payment.dto';
 import { ResolveDisputeDto } from './dto/resolve-dispute.dto';
+import { RateTradeDto } from './dto/rate-trade.dto';
 
 @Controller('trades')
 @UseGuards(JwtAuthGuard)
@@ -53,6 +54,16 @@ export class TradesController {
   @Post(':id/dispute')
   dispute(@Req() req: any, @Param('id') id: string, @Body() dto: DisputeTradeDto) {
     return this.tradesService.raiseDispute(req.user.userId, id, dto);
+  }
+
+  @Post(':id/rate')
+  rate(@Req() req: any, @Param('id') id: string, @Body() dto: RateTradeDto) {
+    return this.tradesService.rateTrade(req.user.userId, id, dto);
+  }
+
+  @Get(':id/rating')
+  getMyRating(@Req() req: any, @Param('id') id: string) {
+    return this.tradesService.getMyRating(req.user.userId, id);
   }
 
   @Get(':id/messages')
