@@ -1,163 +1,231 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useParams } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
+import { displayName } from '@/lib/displayName';
 import { formatAmount } from '@/lib/format';
-import { shortFor } from '@/lib/networks';
-import { NetworkIcon } from '@/components/NetworkIcon';
 
-type NetworkOption = { network: string; label: string; withdrawalFeeUsdt?: number };
+const POLL_MS = 4000;
 
-function CopyButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
+const STATUS_LABEL: Record<string, string> = {
+  PENDING: 'Pending',
+  ESCROW_LOCKED: 'Escrow locked — send payment',
+  PAID: 'Payment marked — awaiting confirmation',
+  COMPLETED: 'Completed',
+  DISPUTED: 'Disputed',
+  CANCELLED: 'Cancelled',
+};
 
-  async function handleCopy() {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      // Clipboard API can be blocked (e.g. insecure context) — fail silently, address is still selectable.
-    }
-  }
+const STATUS_COLOR: Record<string, string> = {
+  PENDING: 'text-muted',
+  ESCROW_LOCKED: 'text-gold',
+  PAID: 'text-gold',
+  COMPLETED: 'text-teal',
+  DISPUTED: 'text-red-400',
+  CANCELLED: 'text-muted',
+};
 
-  return (
-    <button
-      type="button"
-      onClick={handleCopy}
-      className="shrink-0 rounded-md border border-white/15 px-2.5 py-1 text-xs font-medium text-paper hover:border-white/30 transition-colors"
-    >
-      {copied ? 'Copied!' : 'Copy'}
-    </button>
-  );
+function resizeImage(file: File, maxSize = 1024): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = reject;
+      img.onload = () => {
+        const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width * scale;
+        canvas.height = img.height * scale;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', 0.85));
+      };
+      img.src = reader.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
-export default function WalletPage() {
-  const [wallets, setWallets] = useState<any[]>([]);
-  const [networks, setNetworks] = useState<NetworkOption[]>([]);
-  const [transactions, setTransactions] = useState<any[]>([]);
+export default function TradeRoomPage() {
+  const params = useParams();
+  const tradeId = params.id as string;
+  const [trade, setTrade] = useState<any>(null);
+  const [me, setMe] = useState<any>(null);
   const [error, setError] = useState('');
-  const [appealingId, setAppealingId] = useState<string | null>(null);
-  const [appealedIds, setAppealedIds] = useState<Set<string>>(new Set());
+  const [actionError, setActionError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [confirmCode, setConfirmCode] = useState('');
 
-  async function loadAll() {
+  async function loadTrade() {
     try {
-      const [w, n, t] = await Promise.all([
-        apiFetch('/wallet/balance'),
-        apiFetch('/wallet/networks'),
-        apiFetch('/wallet/transactions'),
-      ]);
-      setWallets(w);
-      setNetworks(n);
-      setTransactions(t);
+      setTrade(await apiFetch(`/trades/${tradeId}`));
     } catch (err: any) {
       setError(err.message);
     }
   }
 
   useEffect(() => {
-    loadAll();
-  }, []);
+    apiFetch('/users/me').then(setMe).catch(() => {});
+    loadTrade();
+    apiFetch(`/trades/${tradeId}/read`, { method: 'POST' }).catch(() => {});
+  }, [tradeId]);
+
+  useEffect(() => {
+    const interval = setInterval(loadTrade, POLL_MS);
+    return () => clearInterval(interval);
+  }, [tradeId]);
+
+  if (!trade) return <main className="min-h-screen bg-ink px-6 py-10 text-muted">{error || 'Loading…'}</main>;
+
+  const isBuyer = me?.id === trade.buyerId;
+  const isSeller = me?.id === trade.sellerId;
+  const counterparty = isBuyer ? trade.seller : trade.buyer;
+
+  async function act(action: 'paid' | 'confirm' | 'cancel', body?: any) {
+    setActionError('');
+    setBusy(true);
+    try {
+      await apiFetch(`/trades/${tradeId}/${action}`, { method: 'POST', body: body ? JSON.stringify(body) : undefined });
+      await loadTrade();
+    } catch (err: any) {
+      setActionError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function dispute() {
+    const reason = window.prompt('Describe the issue (at least 10 characters) — our team will review the chat log:');
+    if (!reason) return;
+    setActionError('');
+    setBusy(true);
+    try {
+      await apiFetch(`/trades/${tradeId}/dispute`, { method: 'POST', body: JSON.stringify({ reason }) });
+      await loadTrade();
+    } catch (err: any) {
+      setActionError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <main className="min-h-screen bg-ink px-6 py-10 md:px-12">
       <div className="max-w-2xl mx-auto space-y-6">
-        <h1 className="font-display font-bold text-2xl text-paper">Wallet</h1>
-        {error && <p className="text-red-400 text-sm">{error}</p>}
+        <div className="bg-surface border border-white/10 rounded-xl p-6">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <h1 className="font-display font-bold text-xl text-paper">Trade room</h1>
+            <span className={`text-sm font-mono uppercase ${STATUS_COLOR[trade.status] ?? 'text-muted'}`}>
+              {STATUS_LABEL[trade.status] ?? trade.status}
+            </span>
+          </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          {wallets
-            .filter((w) => w.currency === 'USDT')
-            .map((w) => (
-              <div key={w.id} className="bg-surface border border-white/10 rounded-xl p-5 col-span-2 sm:col-span-1">
-                <p className="text-xs text-muted mb-1">{w.currency}</p>
-                <p className="font-mono text-xl text-paper">{formatAmount(w.balance, 4)}</p>
-                {parseFloat(w.lockedBalance) > 0 && (
-                  <p className="text-xs text-gold mt-1">{formatAmount(w.lockedBalance, 4)} in escrow</p>
+          <div className="grid grid-cols-2 gap-4 mt-4">
+            <div className="bg-surfaceRaised rounded-md p-3">
+              <p className="text-[11px] text-muted">Amount</p>
+              <p className="font-mono text-paper">{formatAmount(trade.amountUsdt, 4)} USDT</p>
+              <p className="font-mono text-xs text-muted">≈ {formatAmount(trade.amountEtb)} ETB</p>
+            </div>
+            <div className="bg-surfaceRaised rounded-md p-3">
+              <p className="text-[11px] text-muted">Trading with</p>
+              <p className="text-paper">{counterparty ? displayName(counterparty) : '—'}</p>
+              <p className="text-[11px] text-muted">{isBuyer ? 'You are the buyer' : isSeller ? 'You are the seller' : ''}</p>
+            </div>
+          </div>
+
+          {trade.feePercent !== undefined && (
+            <p className="text-xs text-muted mt-3">
+              A {trade.feePercent}% platform fee applies to the USDT side when this trade completes.
+            </p>
+          )}
+
+          {actionError && <p className="text-red-400 text-sm mt-3">{actionError}</p>}
+
+          <div className="flex flex-wrap gap-2 mt-4">
+            {isBuyer && trade.status === 'ESCROW_LOCKED' && (
+              <button
+                onClick={() => act('paid')}
+                disabled={busy}
+                className="rounded-md bg-gradient-to-br from-gold to-teal px-4 py-2 text-ink font-medium disabled:opacity-50"
+              >
+                Mark as paid
+              </button>
+            )}
+
+            {isSeller && trade.status === 'PAID' && (
+              <div className="flex items-center gap-2">
+                {me?.twoFaEnabled && (
+                  <input
+                    value={confirmCode}
+                    onChange={(e) => setConfirmCode(e.target.value)}
+                    placeholder="2FA code"
+                    className="bg-surfaceRaised rounded-md px-3 py-2 text-paper outline-none focus:ring-2 focus:ring-teal w-28"
+                  />
                 )}
+                <button
+                  onClick={() => act('confirm', { code: confirmCode || undefined })}
+                  disabled={busy}
+                  className="rounded-md bg-gradient-to-br from-gold to-teal px-4 py-2 text-ink font-medium disabled:opacity-50"
+                >
+                  Confirm payment received
+                </button>
               </div>
-            ))}
-        </div>
+            )}
 
-        {networks.length > 0 && <DepositCard networks={networks} onSubmitted={loadAll} />}
+            {(trade.status === 'PENDING' || trade.status === 'ESCROW_LOCKED') && (isBuyer || isSeller) && (
+              <button
+                onClick={() => act('cancel')}
+                disabled={busy}
+                className="rounded-md border border-white/15 px-4 py-2 text-paper font-medium disabled:opacity-50"
+              >
+                Cancel trade
+              </button>
+            )}
 
-        {networks.length > 0 && <WithdrawCard networks={networks} onSubmitted={loadAll} />}
-
-        <div className="bg-surface border border-white/10 rounded-xl p-5">
-          <h2 className="font-display font-medium text-paper mb-3">Recent activity</h2>
-          <div className="space-y-2">
-            {transactions.map((tx) => (
-              <div key={tx.id} className="border-b border-white/5 last:border-0 pb-2 last:pb-0">
-                <div className="flex items-center justify-between text-sm gap-3">
-                  <span className="text-muted min-w-0">
-                    <span className="block">
-                      {tx.type} {tx.network ? `· ${tx.network}` : ''} · {new Date(tx.createdAt).toLocaleDateString()}
-                    </span>
-                    {tx.code && <span className="block font-mono text-[11px] text-muted/70">{tx.code}</span>}
-                  </span>
-                  <span className="font-mono text-paper shrink-0">{formatAmount(tx.amount, 4)}</span>
-                  <span
-                    className={
-                      (tx.status === 'CONFIRMED' ? 'text-teal text-xs' : tx.status === 'FAILED' ? 'text-red-400 text-xs' : 'text-gold text-xs') +
-                      ' shrink-0'
-                    }
-                  >
-                    {tx.status}
-                  </span>
-                </div>
-                <div className="mt-1">
-                  {appealedIds.has(tx.id) ? (
-                    <p className="text-[11px] text-teal">Appeal submitted</p>
-                  ) : appealingId === tx.id ? (
-                    <AppealForm
-                      transactionId={tx.id}
-                      onCancel={() => setAppealingId(null)}
-                      onSubmitted={() => {
-                        setAppealedIds((prev) => new Set(prev).add(tx.id));
-                        setAppealingId(null);
-                      }}
-                    />
-                  ) : (
-                    <button
-                      onClick={() => setAppealingId(tx.id)}
-                      className="text-[11px] text-muted underline hover:text-paper"
-                    >
-                      Appeal this transaction
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-            {transactions.length === 0 && <p className="text-muted text-sm">No activity yet.</p>}
+            {!['COMPLETED', 'CANCELLED'].includes(trade.status) && (isBuyer || isSeller) && (
+              <button
+                onClick={dispute}
+                disabled={busy}
+                className="rounded-md border border-red-400/30 px-4 py-2 text-red-400 font-medium disabled:opacity-50"
+              >
+                Raise dispute
+              </button>
+            )}
           </div>
         </div>
+
+        {trade.status === 'COMPLETED' && (isBuyer || isSeller) && <RatingCard tradeId={tradeId} />}
+
+        {(isBuyer || isSeller) && <TradeChat tradeId={tradeId} myUserId={me?.id} />}
       </div>
     </main>
   );
 }
 
-function AppealForm({
-  transactionId,
-  onCancel,
-  onSubmitted,
-}: {
-  transactionId: string;
-  onCancel: () => void;
-  onSubmitted: () => void;
-}) {
-  const [reason, setReason] = useState('');
+function RatingCard({ tradeId }: { tradeId: string }) {
+  const [myRating, setMyRating] = useState<any>(undefined);
+  const [stars, setStars] = useState(5);
+  const [comment, setComment] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  useEffect(() => {
+    apiFetch(`/trades/${tradeId}/rating`)
+      .then(setMyRating)
+      .catch(() => setMyRating(null));
+  }, [tradeId]);
+
   async function submit() {
-    setError('');
     setSubmitting(true);
+    setError('');
     try {
-      await apiFetch('/appeals', {
+      const rating = await apiFetch(`/trades/${tradeId}/rate`, {
         method: 'POST',
-        body: JSON.stringify({ transactionId, reason }),
+        body: JSON.stringify({ stars, comment: comment || undefined }),
       });
-      onSubmitted();
+      setMyRating(rating);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -165,231 +233,164 @@ function AppealForm({
     }
   }
 
-  return (
-    <div className="mt-2 space-y-2">
-      <textarea
-        value={reason}
-        onChange={(e) => setReason(e.target.value)}
-        placeholder="Explain why you're appealing this transaction..."
-        rows={3}
-        className="w-full bg-surfaceRaised rounded-md px-3 py-2 text-sm text-paper outline-none focus:ring-2 focus:ring-teal"
-      />
-      {error && <p className="text-red-400 text-xs">{error}</p>}
-      <div className="flex gap-2">
-        <button
-          onClick={submit}
-          disabled={submitting || reason.trim().length < 10}
-          className="text-xs font-medium px-3 py-1.5 rounded bg-gradient-to-br from-gold to-teal text-ink disabled:opacity-50"
-        >
-          Submit appeal
-        </button>
-        <button onClick={onCancel} className="text-xs font-medium px-3 py-1.5 rounded border border-white/15 text-paper">
-          Cancel
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function NetworkSelect({
-  networks,
-  value,
-  onChange,
-}: {
-  networks: NetworkOption[];
-  value: string | null;
-  onChange: (v: string) => void;
-}) {
-  return (
-    <div>
-      <span className="text-xs text-muted block mb-2">Network</span>
-      <div className="grid grid-cols-4 gap-2">
-        {networks.map((n) => {
-          const active = n.network === value;
-          return (
-            <button
-              key={n.network}
-              type="button"
-              onClick={() => onChange(n.network)}
-              title={n.label}
-              className={`flex flex-col items-center gap-1 rounded-md py-2 px-1 border transition-colors ${
-                active ? 'border-transparent bg-gradient-to-br from-gold/20 to-teal/20 ring-1 ring-teal' : 'border-white/10 hover:border-white/25'
-              }`}
-            >
-              <span className="flex items-center justify-center h-8 w-8 rounded-full overflow-hidden">
-                <NetworkIcon network={n.network} />
-              </span>
-              <span className="text-[10px] text-muted text-center leading-tight">{shortFor(n.network)}</span>
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function DepositCard({ networks, onSubmitted }: { networks: NetworkOption[]; onSubmitted: () => void }) {
-  const [network, setNetwork] = useState<string | null>(null);
-  const [depositInfo, setDepositInfo] = useState<any>(null);
-  const [amount, setAmount] = useState('');
-  const [txHash, setTxHash] = useState('');
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState(false);
-
-  useEffect(() => {
-    if (!network) {
-      setDepositInfo(null);
-      return;
-    }
-    setDepositInfo(null);
-    apiFetch(`/wallet/deposit-address?network=${network}`)
-      .then(setDepositInfo)
-      .catch((err) => setError(err.message));
-  }, [network]);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError('');
-    if (!network) {
-      setError('Pick a network first.');
-      return;
-    }
-    try {
-      await apiFetch('/wallet/deposit', {
-        method: 'POST',
-        body: JSON.stringify({ currency: 'USDT', amount, txHash, network }),
-      });
-      setSuccess(true);
-      setAmount('');
-      setTxHash('');
-      onSubmitted();
-    } catch (err: any) {
-      setError(err.message);
-    }
-  }
+  if (myRating === undefined) return null;
 
   return (
-    <div className="bg-surface border border-white/10 rounded-xl p-5">
-      <h2 className="font-display font-medium text-paper mb-3">Deposit USDT</h2>
-      <p className="text-xs text-muted mb-3">
-        Pick the network you're sending from, send USDT to the address shown, then submit the transaction
-        hash below. Our team confirms it on-chain, usually within a few minutes.
-      </p>
-
-      <div className="mb-4">
-        <NetworkSelect networks={networks} value={network} onChange={setNetwork} />
-      </div>
-
-      {!network && <p className="text-muted text-sm mb-4">Tap a network above to see its deposit address.</p>}
-
-      {network && depositInfo && (
-        <>
-          <div className="bg-white rounded-lg p-4 mb-3 flex justify-center">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={depositInfo.qrCodeDataUrl} alt="Deposit address QR code" width={160} height={160} />
+    <div className="bg-surface border border-white/10 rounded-xl p-6">
+      <h2 className="font-display font-medium text-paper mb-3">Rate this trade</h2>
+      {myRating ? (
+        <p className="text-sm text-teal">
+          You rated this trade {myRating.stars} ★{myRating.comment ? ` — "${myRating.comment}"` : ''}
+        </p>
+      ) : (
+        <div className="space-y-3">
+          <div className="flex gap-1">
+            {[1, 2, 3, 4, 5].map((n) => (
+              <button
+                key={n}
+                type="button"
+                onClick={() => setStars(n)}
+                className={`text-2xl leading-none ${n <= stars ? 'text-gold' : 'text-white/15'}`}
+              >
+                ★
+              </button>
+            ))}
           </div>
-          <div className="flex items-center gap-2 bg-surfaceRaised rounded-md p-3 mb-4">
-            <p className="font-mono text-xs text-paper break-all flex-1">{depositInfo.address}</p>
-            <CopyButton text={depositInfo.address} />
-          </div>
-
-          <p className="text-xs text-muted mb-4">
-            No fee from us on deposits — you'll only pay the usual blockchain network fee from your own wallet
-            or exchange when sending, same as any other transfer.
-          </p>
-
-          <form onSubmit={handleSubmit} className="space-y-3">
-            <input
-              placeholder="Amount sent (USDT)"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              required
-              className="w-full bg-surfaceRaised rounded-md px-3 py-2 text-paper outline-none focus:ring-2 focus:ring-teal"
-            />
-            <input
-              placeholder="Transaction hash"
-              value={txHash}
-              onChange={(e) => setTxHash(e.target.value)}
-              required
-              className="w-full bg-surfaceRaised rounded-md px-3 py-2 text-paper outline-none focus:ring-2 focus:ring-teal"
-            />
-            {error && <p className="text-red-400 text-sm">{error}</p>}
-            {success && <p className="text-teal text-sm">Submitted — pending confirmation.</p>}
-            <button type="submit" className="w-full rounded-md bg-gradient-to-br from-gold to-teal py-2 text-ink font-medium hover:opacity-90 transition-opacity">
-              Submit deposit
-            </button>
-          </form>
-        </>
+          <textarea
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            placeholder="Optional comment about this trader..."
+            maxLength={500}
+            rows={2}
+            className="w-full bg-surfaceRaised rounded-md px-3 py-2 text-sm text-paper outline-none focus:ring-2 focus:ring-teal resize-none"
+          />
+          {error && <p className="text-red-400 text-xs">{error}</p>}
+          <button
+            onClick={submit}
+            disabled={submitting}
+            className="rounded-md bg-gradient-to-br from-gold to-teal px-4 py-2 text-ink text-sm font-medium disabled:opacity-50"
+          >
+            Submit rating
+          </button>
+        </div>
       )}
     </div>
   );
 }
 
-function WithdrawCard({ networks, onSubmitted }: { networks: NetworkOption[]; onSubmitted: () => void }) {
-  const [network, setNetwork] = useState(networks[0].network);
-  const [amount, setAmount] = useState('');
-  const [toAddress, setToAddress] = useState('');
+function TradeChat({ tradeId, myUserId }: { tradeId: string; myUserId?: string }) {
+  const [messages, setMessages] = useState<any[]>([]);
+  const [text, setText] = useState('');
+  const [attachment, setAttachment] = useState<string | null>(null);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState(false);
+  const [sending, setSending] = useState(false);
+  const bottomRef = useRef<HTMLDivElement>(null);
 
-  const selected = networks.find((n) => n.network === network);
-  const fee = selected?.withdrawalFeeUsdt ?? 0;
-  const amountNum = parseFloat(amount);
-  const netAmount = !Number.isNaN(amountNum) && amountNum > fee ? amountNum - fee : null;
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError('');
+  async function load() {
     try {
-      await apiFetch('/wallet/withdraw', {
-        method: 'POST',
-        body: JSON.stringify({ currency: 'USDT', amount, toAddress, network }),
-      });
-      setSuccess(true);
-      setAmount('');
-      setToAddress('');
-      onSubmitted();
+      setMessages(await apiFetch(`/trades/${tradeId}/messages`));
     } catch (err: any) {
       setError(err.message);
     }
   }
 
+  useEffect(() => {
+    load();
+    const interval = setInterval(load, POLL_MS);
+    return () => clearInterval(interval);
+  }, [tradeId]);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages.length]);
+
+  async function handleFilePick(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      setAttachment(await resizeImage(file));
+    } catch {
+      setError('Could not attach that file — try a photo instead.');
+    }
+  }
+
+  async function send() {
+    if (!text.trim() && !attachment) return;
+    setSending(true);
+    setError('');
+    try {
+      await apiFetch(`/trades/${tradeId}/messages`, {
+        method: 'POST',
+        body: JSON.stringify({ message: text || undefined, attachmentUrl: attachment ?? undefined }),
+      });
+      setText('');
+      setAttachment(null);
+      load();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setSending(false);
+    }
+  }
+
   return (
-    <div className="bg-surface border border-white/10 rounded-xl p-5">
-      <h2 className="font-display font-medium text-paper mb-3">Withdraw USDT</h2>
-      <p className="text-xs text-muted mb-3">
-        Funds are held while our team sends the USDT from the platform wallet, usually within a few hours.
-      </p>
-      <form onSubmit={handleSubmit} className="space-y-3">
-        <NetworkSelect networks={networks} value={network} onChange={setNetwork} />
+    <div className="bg-surface border border-white/10 rounded-xl p-6">
+      <h2 className="font-display font-medium text-paper mb-3">Chat</h2>
+      <div className="space-y-2 max-h-80 overflow-y-auto">
+        {messages.map((m) => (
+          <div key={m.id} className={`text-xs ${m.senderId === myUserId ? 'text-right' : ''}`}>
+            <span className="text-muted">{m.senderId === myUserId ? 'You' : 'Them'} · {new Date(m.createdAt).toLocaleString()}</span>
+            {m.message && <p className="text-paper mt-0.5">{m.message}</p>}
+            {m.attachmentUrl && (
+              <a href={m.attachmentUrl} target="_blank" rel="noopener noreferrer">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={m.attachmentUrl} alt="Attachment" className="mt-1 max-h-40 rounded-md border border-white/10 inline-block" />
+              </a>
+            )}
+          </div>
+        ))}
+        {messages.length === 0 && <p className="text-muted text-xs">No messages yet.</p>}
+        <div ref={bottomRef} />
+      </div>
 
-        {fee > 0 && (
-          <p className="text-xs text-gold bg-gold/10 border border-gold/20 rounded-md px-3 py-2">
-            Network fee: {formatAmount(fee, 4)} USDT — covers the blockchain gas cost to send your withdrawal.
-            {netAmount !== null && ` You'll receive ≈ ${formatAmount(netAmount, 4)} USDT.`}
-          </p>
-        )}
+      {attachment && (
+        <div className="flex items-center gap-2 bg-surfaceRaised rounded-md p-2 mt-3">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={attachment} alt="Pending attachment" className="h-10 w-10 object-cover rounded" />
+          <span className="text-xs text-muted flex-1">Attached — will send with your next message</span>
+          <button type="button" onClick={() => setAttachment(null)} className="text-xs text-red-400 font-medium">
+            Remove
+          </button>
+        </div>
+      )}
 
+      {error && <p className="text-red-400 text-xs mt-2">{error}</p>}
+
+      <div className="flex gap-2 mt-3">
+        <input type="file" id={`file-${tradeId}`} accept="image/*" onChange={handleFilePick} className="hidden" />
+        <label
+          htmlFor={`file-${tradeId}`}
+          className="rounded-md border border-white/15 px-3 py-2 text-paper text-sm font-medium cursor-pointer shrink-0"
+          title="Attach a photo (e.g. payment receipt)"
+        >
+          📎
+        </label>
         <input
-          placeholder="Amount (USDT)"
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          required
-          className="w-full bg-surfaceRaised rounded-md px-3 py-2 text-paper outline-none focus:ring-2 focus:ring-teal"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && send()}
+          placeholder="Write a message..."
+          className="flex-1 bg-surfaceRaised rounded-md px-3 py-2 text-sm text-paper outline-none focus:ring-2 focus:ring-teal"
         />
-        <input
-          placeholder="Your destination address"
-          value={toAddress}
-          onChange={(e) => setToAddress(e.target.value)}
-          required
-          className="w-full bg-surfaceRaised rounded-md px-3 py-2 text-paper outline-none focus:ring-2 focus:ring-teal"
-        />
-        {error && <p className="text-red-400 text-sm">{error}</p>}
-        {success && <p className="text-teal text-sm">Withdrawal requested.</p>}
-        <button type="submit" className="w-full rounded-md border border-white/15 py-2 text-paper font-medium">
-          Request withdrawal
+        <button
+          onClick={send}
+          disabled={sending}
+          className="rounded-md bg-gradient-to-br from-gold to-teal px-4 py-2 text-ink text-sm font-medium disabled:opacity-50"
+        >
+          Send
         </button>
-      </form>
+      </div>
     </div>
   );
 }
