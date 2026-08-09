@@ -149,6 +149,8 @@ model User {
   merchantApplications MerchantApplication[]
   transactionAppeals   TransactionAppeal[]
   supportMessages      SupportMessage[]
+  ratingsGiven         TradeRating[]          @relation("rater")
+  ratingsReceived      TradeRating[]          @relation("ratedUser")
 
   @@map("users")
 }
@@ -222,6 +224,8 @@ model WalletTransaction {
   fromAddress String?
   code        String?
   createdAt   DateTime @default(now())
+  firstApprovedBy String?
+  firstApprovedAt DateTime?
 
   appeals TransactionAppeal[]
 
@@ -275,12 +279,30 @@ model Trade {
   completedAt      DateTime?
   buyerLastReadAt  DateTime?
   sellerLastReadAt DateTime?
+  timeoutWarnedAt  DateTime?
 
   escrow   Escrow?
   messages TradeMessage[]
   dispute  Dispute?
+  ratings  TradeRating[]
 
   @@map("trades")
+}
+
+model TradeRating {
+  id          String   @id @default(uuid())
+  tradeId     String
+  trade       Trade    @relation(fields: [tradeId], references: [id])
+  raterId     String
+  rater       User     @relation("rater", fields: [raterId], references: [id])
+  ratedUserId String
+  ratedUser   User     @relation("ratedUser", fields: [ratedUserId], references: [id])
+  stars       Int
+  comment     String?  @db.Text
+  createdAt   DateTime @default(now())
+
+  @@unique([tradeId, raterId])
+  @@map("trade_ratings")
 }
 
 model Escrow {
