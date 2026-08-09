@@ -30,6 +30,8 @@ type Ad = {
     tier?: string | null;
     isMerchant?: boolean;
     avgReleaseMinutes?: number | null;
+    avgRating?: number | null;
+    ratingCount?: number;
   };
 };
 
@@ -69,6 +71,11 @@ function MerchantBadges({ user }: { user: Ad['user'] }) {
           {user.tier}
         </span>
       )}
+      {user.avgRating !== null && user.avgRating !== undefined && (
+        <span className="text-[11px] text-gold" title={`${user.ratingCount} rating${user.ratingCount === 1 ? '' : 's'}`}>
+          ★ {user.avgRating} ({user.ratingCount})
+        </span>
+      )}
       {user.completionRate !== null && user.completionRate !== undefined && (
         <span className="text-[11px] text-muted">
           {user.completionRate}% · {user.completedTrades} trades
@@ -105,6 +112,10 @@ export default function MarketplacePage() {
   const [showForm, setShowForm] = useState(false);
   const [tab, setTab] = useState<'BUY' | 'SELL'>('BUY');
   const [methodFilter, setMethodFilter] = useState<string[]>([]);
+  const [minPrice, setMinPrice] = useState('');
+  const [maxPrice, setMaxPrice] = useState('');
+  const [minLimit, setMinLimit] = useState('');
+  const [merchantOnly, setMerchantOnly] = useState(false);
 
   async function loadAds() {
     try {
@@ -126,9 +137,27 @@ export default function MarketplacePage() {
 
   // "Buy" tab shows sellers' offers (side SELL) — that's who you'd buy USDT from.
   // "Sell" tab shows buyers' offers (side BUY) — that's who you'd sell USDT to.
+  const minPriceNum = parseFloat(minPrice);
+  const maxPriceNum = parseFloat(maxPrice);
+  const minLimitNum = parseFloat(minLimit);
+
   const visibleAds = ads
     .filter((ad) => ad.side === (tab === 'BUY' ? 'SELL' : 'BUY'))
-    .filter((ad) => methodFilter.length === 0 || ad.paymentMethods.some((m) => methodFilter.includes(m)));
+    .filter((ad) => methodFilter.length === 0 || ad.paymentMethods.some((m) => methodFilter.includes(m)))
+    .filter((ad) => !merchantOnly || ad.user.isMerchant)
+    .filter((ad) => Number.isNaN(minPriceNum) || parseFloat(ad.effectivePriceEtb ?? ad.priceEtb) >= minPriceNum)
+    .filter((ad) => Number.isNaN(maxPriceNum) || parseFloat(ad.effectivePriceEtb ?? ad.priceEtb) <= maxPriceNum)
+    .filter((ad) => Number.isNaN(minLimitNum) || parseFloat(ad.maxLimitEtb) >= minLimitNum);
+
+  const hasActiveFilters = methodFilter.length > 0 || merchantOnly || minPrice || maxPrice || minLimit;
+
+  function clearAllFilters() {
+    setMethodFilter([]);
+    setMerchantOnly(false);
+    setMinPrice('');
+    setMaxPrice('');
+    setMinLimit('');
+  }
 
   function toggleMethodFilter(label: string) {
     setMethodFilter((prev) => (prev.includes(label) ? prev.filter((m) => m !== label) : [...prev, label]));
@@ -194,8 +223,33 @@ export default function MarketplacePage() {
               </button>
             );
           })}
-          {methodFilter.length > 0 && (
-            <button onClick={() => setMethodFilter([])} className="text-xs text-muted hover:text-paper underline">
+        </div>
+
+        <div className="flex items-center gap-3 mb-6 flex-wrap">
+          <input
+            value={minPrice}
+            onChange={(e) => setMinPrice(e.target.value)}
+            placeholder="Min price ETB"
+            className="w-32 bg-surfaceRaised rounded-md px-3 py-1.5 text-xs text-paper outline-none focus:ring-2 focus:ring-teal"
+          />
+          <input
+            value={maxPrice}
+            onChange={(e) => setMaxPrice(e.target.value)}
+            placeholder="Max price ETB"
+            className="w-32 bg-surfaceRaised rounded-md px-3 py-1.5 text-xs text-paper outline-none focus:ring-2 focus:ring-teal"
+          />
+          <input
+            value={minLimit}
+            onChange={(e) => setMinLimit(e.target.value)}
+            placeholder="Min trade amount ETB"
+            className="w-40 bg-surfaceRaised rounded-md px-3 py-1.5 text-xs text-paper outline-none focus:ring-2 focus:ring-teal"
+          />
+          <label className="flex items-center gap-1.5 text-xs text-muted">
+            <input type="checkbox" checked={merchantOnly} onChange={(e) => setMerchantOnly(e.target.checked)} />
+            Merchants only
+          </label>
+          {hasActiveFilters && (
+            <button onClick={clearAllFilters} className="text-xs text-muted hover:text-paper underline">
               Clear filters
             </button>
           )}
