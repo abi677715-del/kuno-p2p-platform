@@ -1,0 +1,74 @@
+import { Injectable, Logger } from '@nestjs/common';
+
+const APP_NAME = 'Birrly';
+
+@Injectable()
+export class MailServiceEnhanced {
+  private readonly logger = new Logger(MailServiceEnhanced.name);
+
+  private async send(to: string, subject: string, html: string) {
+    try {
+      const res = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from: process.env.MAIL_FROM ?? 'onboarding@resend.dev',
+          to,
+          subject,
+          html,
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.text().catch(() => '');
+        throw new Error(`Resend API returned ${res.status}: ${body}`);
+      }
+    } catch (err) {
+      this.logger.error(`Failed to send email to ${to}`, err as Error);
+    }
+  }
+
+  async sendHtmlEmail(to: string, subject: string, html: string) {
+    return this.send(to, subject, html);
+  }
+
+  sendVerificationEmail(to: string, token: string) {
+    const verifyUrl = `${process.env.FRONTEND_URL}/verify-email?token=${token}`;
+    return this.send(
+      to,
+      `Confirm your ${APP_NAME} account`,
+      `
+        <p>Welcome to ${APP_NAME}!</p>
+        <p>Please confirm your email address by clicking the link below:</p>
+        <p><a href="${verifyUrl}">${verifyUrl}</a></p>
+      `,
+    );
+  }
+
+  sendPasswordResetEmail(to: string, token: string) {
+    const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
+    return this.send(
+      to,
+      `Reset your ${APP_NAME} password`,
+      `
+        <p>We received a request to reset your ${APP_NAME} password.</p>
+        <p><a href="${resetUrl}">${resetUrl}</a></p>
+        <p>This link expires in 1 hour. If you didn't request this, you can safely ignore this email.</p>
+      `,
+    );
+  }
+
+  sendTradeUpdateEmail(to: string, subject: string, message: string, tradeId: string) {
+    const tradeUrl = `${process.env.FRONTEND_URL}/trades/${tradeId}`;
+    return this.send(
+      to,
+      `${subject} — ${APP_NAME}`,
+      `
+        <p>${message}</p>
+        <p><a href="${tradeUrl}">View trade</a></p>
+      `,
+    );
+  }
+}
