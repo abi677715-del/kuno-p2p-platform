@@ -13,8 +13,12 @@ import { DisputeTradeDto } from './dto/dispute-trade.dto';
 import { SendMessageDto } from './dto/send-message.dto';
 import { ConfirmPaymentDto } from './dto/confirm-payment.dto';
 import { ResolveDisputeDto, DisputeOutcome } from './dto/resolve-dispute.dto';
+import { RateTradeDto } from './dto/rate-trade.dto';
+import { tierFor, dailyLimitFor, monthlyLimitFor } from '../common/trader-tier';
 
 const REFERRAL_FEE_SHARE_PERCENT = parseFloat(process.env.REFERRAL_FEE_SHARE_PERCENT ?? '20');
+const DAY_MS = 24 * 60 * 60 * 1000;
+const MONTH_MS = 30 * DAY_MS;
 
 @Injectable()
 export class TradesService {
@@ -65,6 +69,8 @@ export class TradesService {
       );
     }
 
+    await this.assertWithinVolumeLimits(takerId, amountEtbNum);
+
     const trade = await this.prisma.trade.create({
       data: {
         adId: ad.id,
@@ -97,6 +103,56 @@ export class TradesService {
     });
   }
 
+  /**
+   * Caps how much ETB volume one account can move by starting new trades,
+   * scaled to their trust tier (see trader-tier.ts) — only checked against
+   * the taker, since the maker's side of the trade was already vetted when
+   * they funded/posted the ad. Only the taker's own completed trades count
+   * toward the tier and the rolling totals, so this can't be inflated by
+   * trading with the same counterparty back and forth.
+   */
+  private async assertWithinVolumeLimits(takerId: string, incomingAmountEtb: number) {
+    const now = Date.now();
+    const [lifetimeCompleted, dayCompleted, monthCompleted] = await Promise.all([
+      this.prisma.trade.count({
+        where: { OR: [{ buyerId: takerId }, { sellerId: takerId }], status: TradeStatus.COMPLETED },
+      }),
+      this.prisma.trade.findMany({
+        where: {
+          OR: [{ buyerId: takerId }, { sellerId: takerId }],
+          status: TradeStatus.COMPLETED,
+          completedAt: { gte: new Date(now - DAY_MS) },
+        },
+        select: { amountEtb: true },
+      }),
+      this.prisma.trade.findMany({
+        where: {
+          OR: [{ buyerId: takerId }, { sellerId: takerId }],
+          status: TradeStatus.COMPLETED,
+          completedAt: { gte: new Date(now - MONTH_MS) },
+        },
+        select: { amountEtb: true },
+      }),
+    ]);
+
+    const tier = tierFor(lifetimeCompleted);
+    const dailyLimit = dailyLimitFor(tier);
+    const monthlyLimit = monthlyLimitFor(tier);
+    const dayVolume = dayCompleted.reduce((sum, t) => sum + parseFloat(t.amountEtb.toString()), 0);
+    const monthVolume = monthCompleted.reduce((sum, t) => sum + parseFloat(t.amountEtb.toString()), 0);
+
+    if (dayVolume + incomingAmountEtb > dailyLimit) {
+      throw new BadRequestException(
+        `This trade would put you over your daily trading limit (${dailyLimit.toLocaleString()} ETB) — you've traded ${dayVolume.toLocaleString()} ETB in the last 24h. Build up more completed trades to raise your limit.`,
+      );
+    }
+    if (monthVolume + incomingAmountEtb > monthlyLimit) {
+      throw new BadRequestException(
+        `This trade would put you over your monthly trading limit (${monthlyLimit.toLocaleString()} ETB) — you've traded ${monthVolume.toLocaleString()} ETB in the last 30 days. Build up more completed trades to raise your limit.`,
+      );
+    }
+  }
+
   listMine(userId: string) {
     return this.prisma.trade.findMany({
       where: { OR: [{ buyerId: userId }, { sellerId: userId }] },
@@ -111,7 +167,12 @@ export class TradesService {
   async findById(id: string) {
     const trade = await this.prisma.trade.findUnique({
       where: { id },
-      include: { escrow: true, ad: true },
+      include: {
+        escrow: true,
+        ad: true,
+        buyer: { select: { id: true, email: true, fullName: true, lastSeenAt: true } },
+        seller: { select: { id: true, email: true, fullName: true, lastSeenAt: true } },
+      },
     });
     if (!trade) throw new NotFoundException('Trade not found');
     return trade;
@@ -223,6 +284,37 @@ export class TradesService {
     return { ok: true };
   }
 
+  /** Lets either side leave a star rating + optional comment on the other, once the trade has finished. One rating per trade per rater. */
+  async rateTrade(userId: string, tradeId: string, dto: RateTradeDto) {
+    const trade = await this.findById(tradeId);
+    this.assertParticipant(trade, userId);
+    if (trade.status !== TradeStatus.COMPLETED) {
+      throw new BadRequestException('You can only rate a trade after it completes');
+    }
+
+    const existing = await this.prisma.tradeRating.findUnique({
+      where: { tradeId_raterId: { tradeId, raterId: userId } },
+    });
+    if (existing) throw new BadRequestException('You already rated this trade');
+
+    const ratedUserId = userId === trade.buyerId ? trade.sellerId : trade.buyerId;
+    const rating = await this.prisma.tradeRating.create({
+      data: { tradeId, raterId: userId, ratedUserId, stars: dto.stars, comment: dto.comment },
+    });
+
+    const message = `You received a ${dto.stars}-star rating on a completed trade.`;
+    await this.notificationsService.create(ratedUserId, 'TRADE_RATED', { tradeId, stars: dto.stars }, { subject: 'New trade rating', message, tradeId });
+
+    return rating;
+  }
+
+  /** The current user's own rating on a trade, if they've left one — lets the frontend hide the rating form once submitted. */
+  async getMyRating(userId: string, tradeId: string) {
+    const trade = await this.findById(tradeId);
+    this.assertParticipant(trade, userId);
+    return this.prisma.tradeRating.findUnique({ where: { tradeId_raterId: { tradeId, raterId: userId } } });
+  }
+
   /**
    * Pays out a cut of the platform fee to whichever party's referrer(s)
    * exist — both the buyer's and seller's referrers can earn on the same
@@ -300,6 +392,38 @@ export class TradesService {
   // --- Timeouts (called by TradeTimeoutService on a schedule) ---
 
   /**
+   * Sends a one-time heads-up shortly before autoCancelStaleEscrow /
+   * autoEscalateUnconfirmedPayments would otherwise act on a trade, so the
+   * party who still needs to act gets a chance to avoid the auto-outcome.
+   * timeoutWarnedAt guards against sending this every sweep tick.
+   */
+  async warnApproachingTimeouts(timeoutMinutes: number, warnBeforeMinutes: number) {
+    const warnCutoff = new Date(Date.now() - (timeoutMinutes - warnBeforeMinutes) * 60_000);
+    const hardCutoff = new Date(Date.now() - timeoutMinutes * 60_000);
+
+    const [approachingEscrow, approachingUnconfirmed] = await Promise.all([
+      this.prisma.trade.findMany({
+        where: { status: TradeStatus.ESCROW_LOCKED, createdAt: { lte: warnCutoff, gt: hardCutoff }, timeoutWarnedAt: null },
+      }),
+      this.prisma.trade.findMany({
+        where: { status: TradeStatus.PAID, paidAt: { lte: warnCutoff, gt: hardCutoff }, timeoutWarnedAt: null },
+      }),
+    ]);
+
+    for (const trade of approachingEscrow) {
+      const message = `Heads up — this trade will be automatically cancelled in about ${warnBeforeMinutes} minutes if payment isn't marked soon.`;
+      await this.notificationsService.create(trade.buyerId, 'TRADE_TIMEOUT_WARNING', { tradeId: trade.id, message }, { subject: 'Trade about to time out', message, tradeId: trade.id });
+      await this.prisma.trade.update({ where: { id: trade.id }, data: { timeoutWarnedAt: new Date() } });
+    }
+    for (const trade of approachingUnconfirmed) {
+      const message = `Heads up — this trade will be escalated to support in about ${warnBeforeMinutes} minutes if you don't confirm the payment soon.`;
+      await this.notificationsService.create(trade.sellerId, 'TRADE_TIMEOUT_WARNING', { tradeId: trade.id, message }, { subject: 'Trade about to time out', message, tradeId: trade.id });
+      await this.prisma.trade.update({ where: { id: trade.id }, data: { timeoutWarnedAt: new Date() } });
+    }
+    return approachingEscrow.length + approachingUnconfirmed.length;
+  }
+
+  /**
    * Escrow that's been locked for too long with no payment claimed ties up
    * the seller's funds indefinitely — cancel it and refund the seller.
    * Safe to auto-cancel here because no fiat has changed hands yet.
@@ -348,7 +472,7 @@ export class TradesService {
         },
       });
       await this.prisma.trade.update({ where: { id: trade.id }, data: { status: TradeStatus.DISPUTED } });
-      const message = 'The seller didn’t confirm your payment in time — this trade has been escalated to support for review.';
+      const message = 'The seller didn\u2019t confirm your payment in time — this trade has been escalated to support for review.';
       await Promise.all([
         this.notificationsService.create(trade.buyerId, 'DISPUTE_OPENED', { tradeId: trade.id, message }, { subject: 'Trade escalated to support', message, tradeId: trade.id }),
         this.notificationsService.create(trade.sellerId, 'DISPUTE_OPENED', { tradeId: trade.id, message }, { subject: 'Trade escalated to support', message, tradeId: trade.id }),
