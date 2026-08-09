@@ -14,6 +14,15 @@ function getRole(): string | null {
   }
 }
 
+const CANNED_RESPONSES = [
+  { label: 'Ask for more detail', text: "Thanks for reaching out — could you share a bit more detail (screenshots, transaction hash, or trade ID) so we can look into this?" },
+  { label: 'KYC pending', text: 'Your KYC submission is in our review queue — approvals are usually processed within a few hours. We’ll notify you as soon as it’s reviewed.' },
+  { label: 'Deposit pending', text: 'We’ve received your deposit submission and it’s pending on-chain verification. This is usually confirmed within a few minutes to a few hours.' },
+  { label: 'Withdrawal processing', text: 'Your withdrawal is confirmed and being sent from our platform wallet — this is usually completed within a few hours.' },
+  { label: 'Dispute under review', text: 'Thanks for the details — our team is reviewing the trade chat log and evidence, and will resolve this dispute shortly.' },
+  { label: 'Resolved, closing', text: 'Glad we could help! We’re marking this request as resolved — feel free to reach out again if anything else comes up.' },
+];
+
 function resizeImage(file: File, maxSize = 1024): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -205,6 +214,24 @@ function TicketThread({ ticketId }: { ticketId: string }) {
       {error && <p className="text-red-400 text-xs">{error}</p>}
 
       <div className="flex gap-2">
+        <select
+          onChange={(e) => {
+            if (e.target.value) setText(e.target.value);
+            e.target.value = '';
+          }}
+          defaultValue=""
+          className="bg-surface rounded-md px-2 py-2 text-xs text-muted outline-none focus:ring-2 focus:ring-teal shrink-0 max-w-[120px]"
+          title="Insert a canned response"
+        >
+          <option value="" disabled>
+            Canned reply…
+          </option>
+          {CANNED_RESPONSES.map((c) => (
+            <option key={c.label} value={c.text}>
+              {c.label}
+            </option>
+          ))}
+        </select>
         <input type="file" id={`admin-file-${ticketId}`} accept="image/*" onChange={handleFilePick} className="hidden" />
         <label
           htmlFor={`admin-file-${ticketId}`}
