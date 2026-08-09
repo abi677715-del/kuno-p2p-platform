@@ -114,6 +114,11 @@ export default function AdDetailPage() {
               {ad.user.tier}
             </span>
           )}
+          {ad.user.avgRating !== null && ad.user.avgRating !== undefined && (
+            <span className="text-[11px] text-gold" title={`${ad.user.ratingCount} rating${ad.user.ratingCount === 1 ? '' : 's'}`}>
+              ★ {ad.user.avgRating} ({ad.user.ratingCount})
+            </span>
+          )}
           {ad.user.completionRate !== null && ad.user.completionRate !== undefined && (
             <span className="text-[11px] text-muted">
               {ad.user.completionRate}% · {ad.user.completedTrades} trades
