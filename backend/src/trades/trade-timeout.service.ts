@@ -3,6 +3,7 @@ import { TradesService } from './trades.service';
 
 const SWEEP_INTERVAL_MS = 60_000;
 const TIMEOUT_MINUTES = 15;
+const WARN_BEFORE_MINUTES = 5;
 
 /**
  * Polls for trades stuck past the 15-minute window and resolves them —
@@ -27,6 +28,7 @@ export class TradeTimeoutService implements OnModuleInit, OnModuleDestroy {
 
   private async sweep() {
     try {
+      await this.tradesService.warnApproachingTimeouts(TIMEOUT_MINUTES, WARN_BEFORE_MINUTES);
       await this.tradesService.autoCancelStaleEscrow(TIMEOUT_MINUTES);
       await this.tradesService.autoEscalateUnconfirmedPayments(TIMEOUT_MINUTES);
     } catch (err) {
