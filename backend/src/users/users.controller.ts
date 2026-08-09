@@ -20,6 +20,7 @@ export class UsersController {
   async me(@Req() req: any) {
     const user = await this.usersService.findById(req.user.userId);
     return {
+      id: user?.id,
       email: user?.email,
       fullName: user?.fullName,
       phone: user?.phone,
