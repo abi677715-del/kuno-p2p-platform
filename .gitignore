@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.next/
+uploads/
+*.log
+.env
+.env.local
+sw.js
+workbox-*.js
