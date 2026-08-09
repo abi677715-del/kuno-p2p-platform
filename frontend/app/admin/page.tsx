@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/api';
+import { DailyChart } from '@/components/DailyChart';
+
+type DailyStat = { date: string; volumeUsdt: number; feeRevenueUsdt: number; tradesCompleted: number; disputesOpened: number };
 
 type Summary = {
   openDisputes: number;
@@ -25,10 +28,12 @@ const CARDS: { key: keyof Summary; label: string; href: string; urgent?: boolean
 
 export default function AdminOverviewPage() {
   const [summary, setSummary] = useState<Summary | null>(null);
+  const [dailyStats, setDailyStats] = useState<DailyStat[]>([]);
   const [error, setError] = useState('');
 
   useEffect(() => {
     apiFetch('/admin/summary').then(setSummary).catch((e) => setError(e.message));
+    apiFetch('/admin/summary/daily-stats?days=30').then(setDailyStats).catch(() => {});
   }, []);
 
   return (
@@ -56,6 +61,36 @@ export default function AdminOverviewPage() {
             );
           })}
         </div>
+
+        {dailyStats.length > 0 && (
+          <div className="mt-10">
+            <h2 className="font-display font-medium text-paper mb-4">Last 30 days</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <DailyChart
+                title="Trade volume (USDT)"
+                points={dailyStats.map((d) => ({ date: d.date, value: d.volumeUsdt }))}
+                color="#0B8457"
+                formatValue={(v) => `${v.toLocaleString()} USDT`}
+              />
+              <DailyChart
+                title="Platform fee revenue (USDT)"
+                points={dailyStats.map((d) => ({ date: d.date, value: d.feeRevenueUsdt }))}
+                color="#E8A33D"
+                formatValue={(v) => `${v.toLocaleString()} USDT`}
+              />
+              <DailyChart
+                title="Trades completed"
+                points={dailyStats.map((d) => ({ date: d.date, value: d.tradesCompleted }))}
+                color="#0B8457"
+              />
+              <DailyChart
+                title="Disputes opened"
+                points={dailyStats.map((d) => ({ date: d.date, value: d.disputesOpened }))}
+                color="#f87171"
+              />
+            </div>
+          </div>
+        )}
       </div>
     </main>
   );
