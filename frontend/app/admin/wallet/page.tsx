@@ -30,16 +30,22 @@ function CopyButton({ text }: { text: string }) {
 export default function AdminWalletPage() {
   const [deposits, setDeposits] = useState<any[]>([]);
   const [withdrawals, setWithdrawals] = useState<any[]>([]);
+  const [myEmail, setMyEmail] = useState('');
   const [error, setError] = useState('');
+  const [selectedDeposits, setSelectedDeposits] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   async function load() {
     try {
-      const [d, w] = await Promise.all([
+      const [d, w, me] = await Promise.all([
         apiFetch('/wallet/admin/deposits/pending'),
         apiFetch('/wallet/admin/withdrawals/pending'),
+        apiFetch('/users/me'),
       ]);
       setDeposits(d);
       setWithdrawals(w);
+      setMyEmail(me.email);
+      setSelectedDeposits(new Set());
     } catch (err: any) {
       setError(err.message);
     }
@@ -54,26 +60,72 @@ export default function AdminWalletPage() {
     load();
   }
 
+  function toggleDepositSelected(id: string) {
+    setSelectedDeposits((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function bulkConfirmDeposits() {
+    setBulkBusy(true);
+    try {
+      await apiFetch('/wallet/admin/deposits/bulk-confirm', {
+        method: 'POST',
+        body: JSON.stringify({ ids: [...selectedDeposits] }),
+      });
+      await load();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
   return (
     <main className="min-h-screen bg-ink px-6 py-10 md:px-12">
       <div className="max-w-3xl mx-auto space-y-10">
         <div>
-          <h1 className="font-display font-bold text-2xl text-paper mb-1">Pending deposits</h1>
-          <p className="text-xs text-muted mb-4">Verify the transaction hash on TronScan before confirming.</p>
+          <div className="flex items-center justify-between mb-1 flex-wrap gap-3">
+            <h1 className="font-display font-bold text-2xl text-paper">Pending deposits</h1>
+            {selectedDeposits.size > 0 && (
+              <button
+                onClick={bulkConfirmDeposits}
+                disabled={bulkBusy}
+                className="rounded-md bg-gradient-to-br from-gold to-teal px-3 py-1.5 text-ink text-sm font-medium disabled:opacity-50"
+              >
+                Confirm {selectedDeposits.size} selected
+              </button>
+            )}
+          </div>
+          <p className="text-xs text-muted mb-4">
+            Verify the transaction hash on TronScan before confirming — check the box once verified, or confirm one at a time.
+          </p>
           {error && <p className="text-red-400 text-sm mb-4">{error}</p>}
           <div className="space-y-3">
             {deposits.map((d) => (
-              <Row
-                key={d.id}
-                code={d.code}
-                email={d.wallet.user.email}
-                amount={d.amount}
-                network={d.network}
-                detail={d.referenceId}
-                detailLabel="tx hash"
-                onConfirm={() => act('deposits', d.id, 'confirm')}
-                onReject={() => act('deposits', d.id, 'reject')}
-              />
+              <div key={d.id} className="flex items-start gap-3">
+                <input
+                  type="checkbox"
+                  checked={selectedDeposits.has(d.id)}
+                  onChange={() => toggleDepositSelected(d.id)}
+                  className="mt-6"
+                />
+                <div className="flex-1">
+                  <Row
+                    code={d.code}
+                    email={d.wallet.user.email}
+                    amount={d.amount}
+                    network={d.network}
+                    detail={d.referenceId}
+                    detailLabel="tx hash"
+                    onConfirm={() => act('deposits', d.id, 'confirm')}
+                    onReject={() => act('deposits', d.id, 'reject')}
+                  />
+                </div>
+              </div>
             ))}
             {deposits.length === 0 && <p className="text-muted text-sm">Nothing pending.</p>}
           </div>
@@ -85,19 +137,32 @@ export default function AdminWalletPage() {
             Send the USDT from the platform wallet manually, then confirm here.
           </p>
           <div className="space-y-3">
-            {withdrawals.map((w) => (
-              <Row
-                key={w.id}
-                code={w.code}
-                email={w.wallet.user.email}
-                amount={w.amount}
-                network={w.network}
-                detail={w.referenceId}
-                detailLabel="destination"
-                onConfirm={() => act('withdrawals', w.id, 'confirm')}
-                onReject={() => act('withdrawals', w.id, 'reject')}
-              />
-            ))}
+            {withdrawals.map((w) => {
+              const alreadyApprovedByMe = w.firstApprovedByEmail === myEmail;
+              return (
+                <Row
+                  key={w.id}
+                  code={w.code}
+                  email={w.wallet.user.email}
+                  amount={w.amount}
+                  network={w.network}
+                  detail={w.referenceId}
+                  detailLabel="destination"
+                  onConfirm={() => act('withdrawals', w.id, 'confirm')}
+                  onReject={() => act('withdrawals', w.id, 'reject')}
+                  confirmDisabled={alreadyApprovedByMe}
+                  note={
+                    w.requiresDualApproval
+                      ? w.firstApprovedByEmail
+                        ? alreadyApprovedByMe
+                          ? 'You already gave the first approval — a different admin must confirm to release funds.'
+                          : `First approval given by ${w.firstApprovedByEmail} — your confirm will release the funds.`
+                        : 'Large withdrawal — needs two different admins to approve before funds are released.'
+                      : undefined
+                  }
+                />
+              );
+            })}
             {withdrawals.length === 0 && <p className="text-muted text-sm">Nothing pending.</p>}
           </div>
         </div>
@@ -115,6 +180,8 @@ function Row({
   detailLabel,
   onConfirm,
   onReject,
+  note,
+  confirmDisabled,
 }: {
   code?: string;
   email: string;
@@ -124,6 +191,8 @@ function Row({
   detailLabel: string;
   onConfirm: () => void;
   onReject: () => void;
+  note?: string;
+  confirmDisabled?: boolean;
 }) {
   return (
     <div className="bg-surface border border-white/10 rounded-xl p-5 flex items-center justify-between gap-4">
@@ -142,9 +211,15 @@ function Row({
           <p className="text-xs text-muted truncate">{detailLabel}: {detail}</p>
           <CopyButton text={detail} />
         </div>
+        {note && <p className="text-[11px] text-gold mt-1.5">{note}</p>}
       </div>
       <div className="flex gap-2 shrink-0">
-        <button onClick={onConfirm} className="rounded-md bg-gradient-to-br from-gold to-teal px-3 py-1.5 text-ink text-sm font-medium hover:opacity-90 transition-opacity">
+        <button
+          onClick={onConfirm}
+          disabled={confirmDisabled}
+          title={confirmDisabled ? 'A different admin must give the second approval' : undefined}
+          className="rounded-md bg-gradient-to-br from-gold to-teal px-3 py-1.5 text-ink text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+        >
           Confirm
         </button>
         <button onClick={onReject} className="rounded-md border border-white/15 px-3 py-1.5 text-paper text-sm font-medium">
