@@ -94,7 +94,7 @@ export default function AdminWalletPage() {
               <button
                 onClick={bulkConfirmDeposits}
                 disabled={bulkBusy}
-                className="rounded-md bg-gradient-to-br from-gold to-teal px-3 py-1.5 text-ink text-sm font-medium disabled:opacity-50"
+                className="rounded-md bg-gradient-to-br from-gold to-teal px-3 py-1.5 text-onaccent text-sm font-medium disabled:opacity-50"
               >
                 Confirm {selectedDeposits.size} selected
               </button>
@@ -218,7 +218,7 @@ function Row({
           onClick={onConfirm}
           disabled={confirmDisabled}
           title={confirmDisabled ? 'A different admin must give the second approval' : undefined}
-          className="rounded-md bg-gradient-to-br from-gold to-teal px-3 py-1.5 text-ink text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+          className="rounded-md bg-gradient-to-br from-gold to-teal px-3 py-1.5 text-onaccent text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
         >
           Confirm
         </button>
