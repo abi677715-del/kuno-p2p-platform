@@ -301,7 +301,7 @@ export default function MarketplacePage() {
                       <span
                         key={method}
                         title={method}
-                        className="flex items-center justify-center h-5 w-5 rounded-full text-[9px] font-bold text-white"
+                        className="flex items-center justify-center h-5 w-5 rounded-full text-[9px] font-bold text-[#fff]"
                         style={{ backgroundColor: colorFor(method) }}
                       >
                         {initialsFor(method)}
@@ -490,7 +490,7 @@ function CreateAdForm({ onCreated }: { onCreated: () => void }) {
                 }`}
               >
                 <span
-                  className="flex items-center justify-center h-8 w-8 rounded-full text-[10px] font-bold text-white"
+                  className="flex items-center justify-center h-8 w-8 rounded-full text-[10px] font-bold text-[#fff]"
                   style={{ backgroundColor: method.color }}
                 >
                   {method.initials}
