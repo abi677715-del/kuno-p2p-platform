@@ -174,7 +174,7 @@ export default function MarketplacePage() {
             </a>
             <button
               onClick={() => setShowForm((v) => !v)}
-              className="rounded-md bg-gradient-to-br from-gold to-teal px-4 py-2 text-ink font-medium hover:opacity-90 transition-opacity"
+              className="rounded-md bg-gradient-to-br from-gold to-teal px-4 py-2 text-onaccent font-medium hover:opacity-90 transition-opacity"
             >
               {showForm ? 'Close' : 'Post an offer'}
             </button>
