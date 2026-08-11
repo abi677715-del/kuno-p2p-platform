@@ -8,7 +8,7 @@ import { formatAmount } from '@/lib/format';
 
 // The logo's diagonal gold-to-teal gradient, reused as the "active" look for
 // every toggle/tab control so selection state reads as on-brand, not generic.
-const TOGGLE_ACTIVE = 'bg-gradient-to-br from-gold to-teal text-ink';
+const TOGGLE_ACTIVE = 'bg-gradient-to-br from-gold to-teal text-onaccent';
 
 type Ad = {
   id: string;
