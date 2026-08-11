@@ -1,3 +1,5 @@
+import AdBanner from './AdBanner';
+
 const columns = [
   {
     title: 'Product',
@@ -60,6 +62,8 @@ export default function Footer() {
           <p className="text-xs text-muted">© {new Date().getFullYear()} Birrly. All rights reserved.</p>
         </div>
       </div>
+
+      <AdBanner />
     </footer>
   );
 }
