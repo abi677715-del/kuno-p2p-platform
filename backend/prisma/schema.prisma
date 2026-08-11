@@ -336,6 +336,7 @@ model Dispute {
   raisedById String
   raisedBy   User          @relation(fields: [raisedById], references: [id])
   reason     String
+  evidenceUrl String?      @db.Text
   status     DisputeStatus @default(OPEN)
   resolvedBy String?
   resolution String?
