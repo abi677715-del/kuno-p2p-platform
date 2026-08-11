@@ -214,7 +214,7 @@ export default function MarketplacePage() {
                 }`}
               >
                 <span
-                  className="flex items-center justify-center h-4 w-4 rounded-full text-[8px] font-bold text-white"
+                  className="flex items-center justify-center h-4 w-4 rounded-full text-[8px] font-bold text-[#fff]"
                   style={{ backgroundColor: method.color }}
                 >
                   {method.initials}
