@@ -371,8 +371,8 @@ export class TradesService {
       throw new BadRequestException('Cannot dispute a finished trade');
     }
 
-    await this.prisma.dispute.create({
-      data: { tradeId, raisedById: userId, reason: dto.reason, status: DisputeStatus.OPEN },
+       await this.prisma.dispute.create({
+      data: { tradeId, raisedById: userId, reason: dto.reason, evidenceUrl: dto.evidenceUrl, status: DisputeStatus.OPEN },
     });
 
     const updated = await this.prisma.trade.update({ where: { id: tradeId }, data: { status: TradeStatus.DISPUTED } });
