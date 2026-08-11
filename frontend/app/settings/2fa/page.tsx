@@ -63,7 +63,7 @@ export default function TwoFaSetupPage() {
 
         {step === 'confirm' && (
           <form onSubmit={confirmSetup}>
-            <div className="bg-white rounded-lg p-4 mb-4 flex justify-center">
+            <div className="bg-[#fff] rounded-lg p-4 mb-4 flex justify-center">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={qrCodeDataUrl} alt="Scan this QR code in your authenticator app" width={200} height={200} />
             </div>
