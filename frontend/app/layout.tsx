@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from 'next';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
+import PinLockGate from '../components/PinLockGate';
+import AutoLogout from '../components/AutoLogout';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -37,7 +39,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="font-body">
         <Header />
-        {children}
+        <AutoLogout />
+        <PinLockGate>{children}</PinLockGate>
         <Footer />
       </body>
     </html>
