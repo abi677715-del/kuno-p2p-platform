@@ -65,9 +65,19 @@ export default function AdminDisputesPage() {
                 </span>
               </div>
               <p className="text-xs text-muted mb-1">Raised by {d.raisedBy.email}</p>
-              <p className="text-sm text-paper mb-4">{d.reason}</p>
+              <p className="text-sm text-paper mb-2">{d.reason}</p>
+              {d.evidenceUrl && (
+                <a href={d.evidenceUrl} target="_blank" rel="noopener noreferrer" className="inline-block mb-3">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={d.evidenceUrl}
+                    alt="Dispute evidence"
+                    className="max-h-48 rounded-md border border-white/10"
+                  />
+                </a>
+              )}
 
-              <div className="flex gap-2 flex-wrap">
+              <div className="flex gap-2 flex-wrap mb-1">
                 <button
                   onClick={() => toggleChat(d.trade.id)}
                   className="rounded-md border border-white/15 px-3 py-1.5 text-teal text-sm font-medium"
