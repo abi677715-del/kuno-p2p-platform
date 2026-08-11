@@ -57,6 +57,7 @@ export default function TradeRoomPage() {
   const [actionError, setActionError] = useState('');
   const [busy, setBusy] = useState(false);
   const [confirmCode, setConfirmCode] = useState('');
+  const [showDisputeForm, setShowDisputeForm] = useState(false);
 
   async function loadTrade() {
     try {
@@ -96,13 +97,12 @@ export default function TradeRoomPage() {
     }
   }
 
-  async function dispute() {
-    const reason = window.prompt('Describe the issue (at least 10 characters) — our team will review the chat log:');
-    if (!reason) return;
+  async function submitDispute(reason: string, evidenceUrl?: string) {
     setActionError('');
     setBusy(true);
     try {
-      await apiFetch(`/trades/${tradeId}/dispute`, { method: 'POST', body: JSON.stringify({ reason }) });
+      await apiFetch(`/trades/${tradeId}/dispute`, { method: 'POST', body: JSON.stringify({ reason, evidenceUrl }) });
+      setShowDisputeForm(false);
       await loadTrade();
     } catch (err: any) {
       setActionError(err.message);
@@ -184,9 +184,9 @@ export default function TradeRoomPage() {
               </button>
             )}
 
-            {!['COMPLETED', 'CANCELLED'].includes(trade.status) && (isBuyer || isSeller) && (
+            {!['COMPLETED', 'CANCELLED'].includes(trade.status) && (isBuyer || isSeller) && !showDisputeForm && (
               <button
-                onClick={dispute}
+                onClick={() => setShowDisputeForm(true)}
                 disabled={busy}
                 className="rounded-md border border-red-400/30 px-4 py-2 text-red-400 font-medium disabled:opacity-50"
               >
@@ -194,6 +194,10 @@ export default function TradeRoomPage() {
               </button>
             )}
           </div>
+
+          {showDisputeForm && (
+            <DisputeForm busy={busy} onCancel={() => setShowDisputeForm(false)} onSubmit={submitDispute} />
+          )}
         </div>
 
         {trade.status === 'COMPLETED' && (isBuyer || isSeller) && <RatingCard tradeId={tradeId} />}
@@ -274,6 +278,98 @@ function RatingCard({ tradeId }: { tradeId: string }) {
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+function DisputeForm({
+  busy,
+  onCancel,
+  onSubmit,
+}: {
+  busy: boolean;
+  onCancel: () => void;
+  onSubmit: (reason: string, evidenceUrl?: string) => void;
+}) {
+  const [reason, setReason] = useState('');
+  const [evidence, setEvidence] = useState<string | null>(null);
+  const [formError, setFormError] = useState('');
+
+  async function handleFilePick(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      setEvidence(await resizeImage(file));
+    } catch {
+      setFormError('Could not attach that file — try a photo instead.');
+    }
+  }
+
+  function submit() {
+    if (reason.trim().length < 10) {
+      setFormError('Please describe the issue in at least 10 characters.');
+      return;
+    }
+    setFormError('');
+    onSubmit(reason.trim(), evidence ?? undefined);
+  }
+
+  return (
+    <div className="mt-4 pt-4 border-t border-white/10 space-y-3">
+      <h3 className="text-sm font-medium text-paper">Raise a dispute</h3>
+      <p className="text-xs text-muted">
+        Describe the issue and, if you have one, attach evidence (a payment receipt, screenshot, etc.) — our team will review the chat log alongside it.
+      </p>
+      <textarea
+        value={reason}
+        onChange={(e) => setReason(e.target.value)}
+        placeholder="Describe the issue (at least 10 characters)..."
+        maxLength={2000}
+        rows={3}
+        className="w-full bg-surfaceRaised rounded-md px-3 py-2 text-sm text-paper outline-none focus:ring-2 focus:ring-teal resize-none"
+      />
+
+      {evidence ? (
+        <div className="flex items-center gap-2 bg-surfaceRaised rounded-md p-2">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={evidence} alt="Evidence" className="h-10 w-10 object-cover rounded" />
+          <span className="text-xs text-muted flex-1">Evidence attached</span>
+          <button type="button" onClick={() => setEvidence(null)} className="text-xs text-red-400 font-medium">
+            Remove
+          </button>
+        </div>
+      ) : (
+        <div>
+          <input type="file" id="dispute-evidence" accept="image/*" onChange={handleFilePick} className="hidden" />
+          <label
+            htmlFor="dispute-evidence"
+            className="inline-block rounded-md border border-white/15 px-3 py-2 text-paper text-xs font-medium cursor-pointer"
+          >
+            📎 Attach evidence (optional)
+          </label>
+        </div>
+      )}
+
+      {formError && <p className="text-red-400 text-xs">{formError}</p>}
+
+      <div className="flex gap-2">
+        <button
+          onClick={submit}
+          disabled={busy}
+          className="rounded-md bg-red-400/20 border border-red-400/30 px-4 py-2 text-red-400 text-sm font-medium disabled:opacity-50"
+        >
+          Submit dispute
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={busy}
+          className="rounded-md border border-white/15 px-4 py-2 text-paper text-sm font-medium disabled:opacity-50"
+        >
+          Cancel
+        </button>
+      </div>
     </div>
   );
 }
