@@ -6,21 +6,40 @@
   --font-display: 'Space Grotesk', sans-serif;
   --font-body: 'Inter', sans-serif;
   --font-mono: 'Times New Roman', Times, serif;
+
+  --color-ink: 15 20 32;
+  --color-surface: 27 34 38;
+  --color-surface-raised: 35 44 49;
+  --color-paper: 242 241 236;
+  --color-muted: 139 154 147;
+  --color-hairline: 255 255 255;
+}
+
+html.light {
+  --color-ink: 245 243 238;
+  --color-surface: 255 255 255;
+  --color-surface-raised: 236 231 221;
+  --color-paper: 18 22 31;
+  --color-muted: 91 107 100;
+  --color-hairline: 18 22 31;
 }
 
 body {
-  background-color: #0f1420;
-  background-image: linear-gradient(135deg, rgba(194, 163, 63, 0.34) 0%, #0f1420 42%, #0f1420 58%, rgba(75, 144, 78, 0.38) 100%);
+  background-color: rgb(var(--color-ink));
+  background-image: linear-gradient(135deg, rgba(194, 163, 63, 0.34) 0%, rgb(var(--color-ink)) 42%, rgb(var(--color-ink)) 58%, rgba(75, 144, 78, 0.38) 100%);
   background-attachment: fixed;
-  color: #f2f1ec;
+  color: rgb(var(--color-paper));
 }
 
-/* Every page's <main> paints its own bg-ink over the body, so the logo's
-   gold-to-teal diagonal is repeated here too, keeping it visible everywhere. */
 .bg-ink {
-  background-color: #0f1420;
-  background-image: linear-gradient(135deg, rgba(194, 163, 63, 0.34) 0%, #0f1420 42%, #0f1420 58%, rgba(75, 144, 78, 0.38) 100%);
+  background-color: rgb(var(--color-ink));
+  background-image: linear-gradient(135deg, rgba(194, 163, 63, 0.34) 0%, rgb(var(--color-ink)) 42%, rgb(var(--color-ink)) 58%, rgba(75, 144, 78, 0.38) 100%);
   background-attachment: fixed;
+}
+
+html.light body,
+html.light .bg-ink {
+  background-image: linear-gradient(135deg, rgba(184, 122, 32, 0.14) 0%, rgb(var(--color-ink)) 42%, rgb(var(--color-ink)) 58%, rgba(6, 92, 61, 0.14) 100%);
 }
 
 @keyframes float-orb {
