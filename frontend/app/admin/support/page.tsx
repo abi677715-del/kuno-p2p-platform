@@ -103,7 +103,7 @@ export default function AdminSupportPage() {
                 {t.status !== 'RESOLVED' ? (
                   <button
                     onClick={() => resolve(t.id)}
-                    className="rounded-md bg-gradient-to-br from-gold to-teal px-3 py-1.5 text-ink text-sm font-medium hover:opacity-90 transition-opacity"
+                    className="rounded-md bg-gradient-to-br from-gold to-teal px-3 py-1.5 text-onaccent text-sm font-medium hover:opacity-90 transition-opacity"
                   >
                     Mark resolved
                   </button>
@@ -249,7 +249,7 @@ function TicketThread({ ticketId }: { ticketId: string }) {
         <button
           onClick={send}
           disabled={sending || (!text.trim() && !attachment)}
-          className="rounded-md bg-gradient-to-br from-gold to-teal px-3 py-2 text-ink text-sm font-medium disabled:opacity-50"
+          className="rounded-md bg-gradient-to-br from-gold to-teal px-3 py-2 text-onaccent text-sm font-medium disabled:opacity-50"
         >
           Send
         </button>
