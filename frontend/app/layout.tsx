@@ -42,9 +42,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className="font-body">
-        <Header />
+          <Header />
         <AutoLogout />
-        <PinLockGate>{children}</PinLockGate>
+        {children}
         <Footer />
       </body>
     </html>
