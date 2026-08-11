@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { apiFetch } from '@/lib/api';
+import { io, Socket } from 'socket.io-client';
+import { apiFetch, API_URL } from '@/lib/api';
 import { displayName } from '@/lib/displayName';
 import { formatAmount } from '@/lib/format';
 
@@ -25,6 +26,34 @@ const STATUS_COLOR: Record<string, string> = {
   DISPUTED: 'text-red-400',
   CANCELLED: 'text-muted',
 };
+
+function TimeoutCountdown({ timeoutAt, status }: { timeoutAt: string | null; status: string }) {
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  if (!timeoutAt) return null;
+
+  const remainingMs = new Date(timeoutAt).getTime() - now;
+  if (remainingMs <= 0) return null;
+
+  const minutes = Math.floor(remainingMs / 60_000);
+  const seconds = Math.floor((remainingMs % 60_000) / 1000);
+  const label =
+    status === 'ESCROW_LOCKED'
+      ? 'Auto-cancels if unpaid in'
+      : 'Escalates to support if unconfirmed in';
+  const urgent = remainingMs < 5 * 60_000;
+
+  return (
+    <p className={`text-xs font-mono mt-2 ${urgent ? 'text-red-400' : 'text-muted'}`}>
+      {label} {minutes}:{seconds.toString().padStart(2, '0')}
+    </p>
+  );
+}
 
 function resizeImage(file: File, maxSize = 1024): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -121,6 +150,8 @@ export default function TradeRoomPage() {
               {STATUS_LABEL[trade.status] ?? trade.status}
             </span>
           </div>
+
+          <TimeoutCountdown timeoutAt={trade.timeoutAt ?? null} status={trade.status} />
 
           <div className="grid grid-cols-2 gap-4 mt-4">
             <div className="bg-surfaceRaised rounded-md p-3">
@@ -272,7 +303,7 @@ function RatingCard({ tradeId }: { tradeId: string }) {
           <button
             onClick={submit}
             disabled={submitting}
-            className="rounded-md bg-gradient-to-br from-gold to-teal px-4 py-2 text-ink text-sm font-medium disabled:opacity-50"
+            className="rounded-md bg-gradient-to-br from-gold to-teal px-4 py-2 text-onaccent text-sm font-medium disabled:opacity-50"
           >
             Submit rating
           </button>
@@ -380,7 +411,9 @@ function TradeChat({ tradeId, myUserId }: { tradeId: string; myUserId?: string }
   const [attachment, setAttachment] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [sending, setSending] = useState(false);
+  const [connected, setConnected] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const socketRef = useRef<Socket | null>(null);
 
   async function load() {
     try {
@@ -392,8 +425,29 @@ function TradeChat({ tradeId, myUserId }: { tradeId: string; myUserId?: string }
 
   useEffect(() => {
     load();
-    const interval = setInterval(load, POLL_MS);
+    const interval = setInterval(load, 20_000);
     return () => clearInterval(interval);
+  }, [tradeId]);
+
+  useEffect(() => {
+    const token = localStorage.getItem('accessToken');
+    if (!token) return;
+    const socket = io(API_URL, { auth: { token } });
+    socketRef.current = socket;
+
+    socket.on('connect', () => {
+      setConnected(true);
+      socket.emit('joinTrade', tradeId);
+    });
+    socket.on('disconnect', () => setConnected(false));
+    socket.on('newMessage', (msg: any) => {
+      setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]));
+    });
+
+    return () => {
+      socket.disconnect();
+      socketRef.current = null;
+    };
   }, [tradeId]);
 
   useEffect(() => {
@@ -416,13 +470,21 @@ function TradeChat({ tradeId, myUserId }: { tradeId: string; myUserId?: string }
     setSending(true);
     setError('');
     try {
-      await apiFetch(`/trades/${tradeId}/messages`, {
-        method: 'POST',
-        body: JSON.stringify({ message: text || undefined, attachmentUrl: attachment ?? undefined }),
-      });
+      if (socketRef.current?.connected) {
+        socketRef.current.emit('sendMessage', {
+          tradeId,
+          message: text || undefined,
+          attachmentUrl: attachment ?? undefined,
+        });
+      } else {
+        await apiFetch(`/trades/${tradeId}/messages`, {
+          method: 'POST',
+          body: JSON.stringify({ message: text || undefined, attachmentUrl: attachment ?? undefined }),
+        });
+        load();
+      }
       setText('');
       setAttachment(null);
-      load();
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -432,7 +494,10 @@ function TradeChat({ tradeId, myUserId }: { tradeId: string; myUserId?: string }
 
   return (
     <div className="bg-surface border border-white/10 rounded-xl p-6">
-      <h2 className="font-display font-medium text-paper mb-3">Chat</h2>
+      <div className="flex items-center gap-2 mb-3">
+        <h2 className="font-display font-medium text-paper">Chat</h2>
+        <span className={`h-1.5 w-1.5 rounded-full ${connected ? 'bg-teal' : 'bg-white/20'}`} title={connected ? 'Live' : 'Reconnecting…'} />
+      </div>
       <div className="space-y-2 max-h-80 overflow-y-auto">
         {messages.map((m) => (
           <div key={m.id} className={`text-xs ${m.senderId === myUserId ? 'text-right' : ''}`}>
@@ -482,7 +547,7 @@ function TradeChat({ tradeId, myUserId }: { tradeId: string; myUserId?: string }
         <button
           onClick={send}
           disabled={sending}
-          className="rounded-md bg-gradient-to-br from-gold to-teal px-4 py-2 text-ink text-sm font-medium disabled:opacity-50"
+          className="rounded-md bg-gradient-to-br from-gold to-teal px-4 py-2 text-onaccent text-sm font-medium disabled:opacity-50"
         >
           Send
         </button>
