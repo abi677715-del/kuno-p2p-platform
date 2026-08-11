@@ -77,7 +77,7 @@ export default function AdminAppealsPage() {
                 <button
                   onClick={() => act(a.id, 'resolve')}
                   disabled={busyId === a.id}
-                  className="rounded-md bg-gradient-to-br from-gold to-teal px-3 py-1.5 text-ink text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+                  className="rounded-md bg-gradient-to-br from-gold to-teal px-3 py-1.5 text-onaccent text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
                 >
                   Resolve (upheld)
                 </button>
