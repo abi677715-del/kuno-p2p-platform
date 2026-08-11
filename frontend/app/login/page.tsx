@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/api';
 
 export default function LoginPage() {
@@ -10,6 +10,14 @@ export default function LoginPage() {
   const [preAuthToken, setPreAuthToken] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [loggedOutNotice, setLoggedOutNotice] = useState(false);
+
+  useEffect(() => {
+    if (sessionStorage.getItem('loggedOutReason') === 'inactivity') {
+      sessionStorage.removeItem('loggedOutReason');
+      setLoggedOutNotice(true);
+    }
+  }, []);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -57,6 +65,10 @@ export default function LoginPage() {
         {!preAuthToken ? (
           <form onSubmit={handleLogin}>
             <h1 className="font-display font-bold text-2xl text-paper mb-6">Log in</h1>
+
+            {loggedOutNotice && (
+              <p className="text-sm text-gold mb-4">You were logged out after a period of inactivity.</p>
+            )}
 
             <label className="text-sm text-muted block mb-1">Email</label>
             <input
