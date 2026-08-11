@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
-import PinLockGate from '../components/PinLockGate';
 import AutoLogout from '../components/AutoLogout';
 import './globals.css';
 
