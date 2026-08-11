@@ -86,7 +86,7 @@ export default function AdminDisputesPage() {
                 </button>
                 <button
                   onClick={() => resolve(d.id, 'RELEASE_TO_BUYER')}
-                  className="rounded-md bg-gradient-to-br from-gold to-teal px-3 py-1.5 text-ink text-sm font-medium hover:opacity-90 transition-opacity"
+                  className="rounded-md bg-gradient-to-br from-gold to-teal px-3 py-1.5 text-onaccent text-sm font-medium hover:opacity-90 transition-opacity"
                 >
                   Release to buyer
                 </button>
