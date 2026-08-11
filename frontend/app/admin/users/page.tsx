@@ -91,7 +91,7 @@ export default function AdminUsersPage() {
                         onClick={() => toggleMerchant(u)}
                         disabled={busyId === u.id}
                         className={`text-xs font-medium px-2 py-1 rounded disabled:opacity-50 ${
-                          u.isMerchant ? 'bg-gradient-to-br from-gold to-teal text-ink' : 'bg-white/10 text-muted'
+                          u.isMerchant ? 'bg-gradient-to-br from-gold to-teal text-onaccent' : 'bg-white/10 text-muted'
                         }`}
                         title="Merchants trade on their own ads at a 1% fee instead of 2%"
                       >
@@ -106,7 +106,7 @@ export default function AdminUsersPage() {
                           onClick={() => toggleSupport(u)}
                           disabled={busyId === u.id}
                           className={`text-xs font-medium px-2 py-1 rounded disabled:opacity-50 ${
-                            u.role === 'SUPPORT' ? 'bg-gradient-to-br from-gold to-teal text-ink' : 'bg-white/10 text-muted'
+                            u.role === 'SUPPORT' ? 'bg-gradient-to-br from-gold to-teal text-onaccent' : 'bg-white/10 text-muted'
                           }`}
                           title="Support staff can handle support tickets only — no wallet, KYC, dispute, or user-management access"
                         >
