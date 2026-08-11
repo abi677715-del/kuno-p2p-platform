@@ -35,7 +35,10 @@ export class TradeChatGateway implements OnGatewayConnection {
   }
 
   @SubscribeMessage('joinTrade')
-  handleJoin(@ConnectedSocket() client: Socket, @MessageBody() tradeId: string) {
+  async handleJoin(@ConnectedSocket() client: Socket, @MessageBody() tradeId: string) {
+    if (!client.data.userId) return;
+    const trade = await this.tradesService.findById(tradeId).catch(() => null);
+    if (!trade || (trade.buyerId !== client.data.userId && trade.sellerId !== client.data.userId)) return;
     client.join(tradeId);
   }
 
