@@ -135,7 +135,7 @@ function Hero({
                   className="flex items-center gap-1.5 rounded-full bg-surface border border-white/10 pl-1.5 pr-3 py-1 text-xs text-muted"
                 >
                   <span
-                    className="flex items-center justify-center h-5 w-5 rounded-full text-[9px] font-bold text-white shrink-0"
+                    className="flex items-center justify-center h-5 w-5 rounded-full text-[9px] font-bold text-[#fff] shrink-0"
                     style={{ backgroundColor: colorFor(m.label) }}
                   >
                     {initialsFor(m.label)}
