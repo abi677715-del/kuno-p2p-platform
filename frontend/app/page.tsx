@@ -61,7 +61,7 @@ function Nav() {
           </a>
           <a
             href="/signup"
-            className="rounded-md bg-gradient-to-br from-gold to-teal px-4 py-2 text-ink font-medium hover:opacity-90 hover:shadow-lg hover:shadow-teal/20 transition-all"
+            className="rounded-md bg-gradient-to-br from-gold to-teal px-4 py-2 text-onaccent font-medium hover:opacity-90 hover:shadow-lg hover:shadow-teal/20 transition-all"
           >
             Get started
           </a>
@@ -113,7 +113,7 @@ function Hero({
           <div className="flex flex-wrap gap-4">
             <a
               href="/signup"
-              className="rounded-md bg-gradient-to-br from-gold to-teal px-6 py-3 text-ink font-medium hover:opacity-90 hover:shadow-lg hover:shadow-teal/20 hover:-translate-y-0.5 transition-all"
+              className="rounded-md bg-gradient-to-br from-gold to-teal px-6 py-3 text-onaccent font-medium hover:opacity-90 hover:shadow-lg hover:shadow-teal/20 hover:-translate-y-0.5 transition-all"
             >
               Create free account
             </a>
@@ -299,7 +299,7 @@ function Cta() {
         <p className="text-muted mb-8">Verification takes a few minutes. Your first trade can happen today.</p>
         <a
           href="/signup"
-          className="inline-block rounded-md bg-gradient-to-br from-gold to-teal px-8 py-3 text-ink font-medium hover:opacity-90 hover:shadow-lg hover:shadow-teal/20 hover:-translate-y-0.5 transition-all"
+          className="inline-block rounded-md bg-gradient-to-br from-gold to-teal px-8 py-3 text-onaccent font-medium hover:opacity-90 hover:shadow-lg hover:shadow-teal/20 hover:-translate-y-0.5 transition-all"
         >
           Create free account
         </a>
