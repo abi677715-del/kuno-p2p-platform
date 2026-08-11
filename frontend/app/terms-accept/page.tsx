@@ -137,7 +137,7 @@ export default function TermsAcceptPage() {
         <button
           onClick={handleContinue}
           disabled={!checked || submitting}
-          className="w-full mt-6 rounded-md bg-gradient-to-br from-gold to-teal py-3 text-ink font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+          className="w-full mt-6 rounded-md bg-gradient-to-br from-gold to-teal py-3 text-onaccent font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
         >
           {submitting ? 'Saving…' : 'Agree & continue'}
         </button>
