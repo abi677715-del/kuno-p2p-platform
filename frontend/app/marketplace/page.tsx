@@ -520,7 +520,7 @@ function CreateAdForm({ onCreated }: { onCreated: () => void }) {
 
       {error && <p className="text-red-400 text-sm">{error}</p>}
 
-      <button type="submit" className="w-full rounded-md bg-gradient-to-br from-gold to-teal py-2 text-ink font-medium hover:opacity-90 transition-opacity">
+      <button type="submit" className="w-full rounded-md bg-gradient-to-br from-gold to-teal py-2 text-onaccent font-medium hover:opacity-90 transition-opacity">
         Post offer
       </button>
     </form>
