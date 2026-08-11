@@ -36,6 +36,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="theme-color" content="#0F1420" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try { if (localStorage.getItem('theme') === 'light') document.documentElement.classList.add('light'); } catch (e) {}`,
+          }}
+        />
       </head>
       <body className="font-body">
         <Header />
