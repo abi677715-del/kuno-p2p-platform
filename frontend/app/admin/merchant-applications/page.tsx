@@ -48,7 +48,7 @@ export default function AdminMerchantApplicationsPage() {
                 <div className="flex gap-2 shrink-0">
                   <button
                     onClick={() => approve(application.id)}
-                    className="rounded-md bg-gradient-to-br from-gold to-teal px-3 py-1.5 text-ink text-sm font-medium hover:opacity-90 transition-opacity"
+                    className="rounded-md bg-gradient-to-br from-gold to-teal px-3 py-1.5 text-onaccent text-sm font-medium hover:opacity-90 transition-opacity"
                   >
                     Approve
                   </button>
