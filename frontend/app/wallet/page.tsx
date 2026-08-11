@@ -284,7 +284,7 @@ function DepositCard({ networks, onSubmitted }: { networks: NetworkOption[]; onS
 
       {network && depositInfo && (
         <>
-          <div className="bg-white rounded-lg p-4 mb-3 flex justify-center">
+          <div className=":bg-[#fff] rounded-lg p-4 mb-3 flex justify-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={depositInfo.qrCodeDataUrl} alt="Deposit address QR code" width={160} height={160} />
           </div>
