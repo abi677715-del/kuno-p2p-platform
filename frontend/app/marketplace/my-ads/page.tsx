@@ -80,7 +80,7 @@ export default function MyAdsPage() {
                 className={`shrink-0 rounded-md px-3 py-1.5 text-sm font-medium ${
                   ad.status === 'ACTIVE'
                     ? 'border border-white/15 text-paper'
-                    : 'bg-gradient-to-br from-gold to-teal text-ink'
+                    : 'bg-gradient-to-br from-gold to-teal text-onaccent'
                 }`}
               >
                 {ad.status === 'ACTIVE' ? 'Pause' : 'Reactivate'}
