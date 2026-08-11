@@ -148,7 +148,7 @@ export default function TradeRoomPage() {
               <button
                 onClick={() => act('paid')}
                 disabled={busy}
-                className="rounded-md bg-gradient-to-br from-gold to-teal px-4 py-2 text-ink font-medium disabled:opacity-50"
+                className="rounded-md bg-gradient-to-br from-gold to-teal px-4 py-2 text-onaccent font-medium disabled:opacity-50"
               >
                 Mark as paid
               </button>
@@ -167,7 +167,7 @@ export default function TradeRoomPage() {
                 <button
                   onClick={() => act('confirm', { code: confirmCode || undefined })}
                   disabled={busy}
-                  className="rounded-md bg-gradient-to-br from-gold to-teal px-4 py-2 text-ink font-medium disabled:opacity-50"
+                  className="rounded-md bg-gradient-to-br from-gold to-teal px-4 py-2 text-onaccent font-medium disabled:opacity-50"
                 >
                   Confirm payment received
                 </button>
