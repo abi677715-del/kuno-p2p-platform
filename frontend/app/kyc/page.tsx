@@ -116,7 +116,7 @@ export default function KycPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-md bg-gradient-to-br from-gold to-teal py-3 text-ink font-medium hover:opacity-90 transition-opacity disabled:opacity-60"
+              className="w-full rounded-md bg-gradient-to-br from-gold to-teal py-3 text-onaccent font-medium hover:opacity-90 transition-opacity disabled:opacity-60"
             >
               {loading ? 'Submitting…' : 'Submit for review'}
             </button>
