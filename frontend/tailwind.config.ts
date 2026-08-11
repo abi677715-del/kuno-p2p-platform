@@ -5,13 +5,15 @@ const config: Config = {
   theme: {
     extend: {
           colors: {
-        ink: '#12161F',
-        surface: '#1B2226',
-        surfaceRaised: '#232C31',
+        ink: 'rgb(var(--color-ink) / <alpha-value>)',
+        surface: 'rgb(var(--color-surface) / <alpha-value>)',
+        surfaceRaised: 'rgb(var(--color-surface-raised) / <alpha-value>)',
+        paper: 'rgb(var(--color-paper) / <alpha-value>)',
+        muted: 'rgb(var(--color-muted) / <alpha-value>)',
+        white: 'rgb(var(--color-hairline) / <alpha-value>)',
         gold: '#E8A33D',
         teal: '#0B8457',
-        paper: '#F2F1EC',
-        muted: '#8B9A93',
+        onaccent: '#12161F',
       },
       fontFamily: {
         display: ['var(--font-display)'],
