@@ -179,7 +179,7 @@ function AppealForm({
         <button
           onClick={submit}
           disabled={submitting || reason.trim().length < 10}
-          className="text-xs font-medium px-3 py-1.5 rounded bg-gradient-to-br from-gold to-teal text-ink disabled:opacity-50"
+          className="text-xs font-medium px-3 py-1.5 rounded bg-gradient-to-br from-gold to-teal text-onaccent disabled:opacity-50"
         >
           Submit appeal
         </button>
@@ -315,7 +315,7 @@ function DepositCard({ networks, onSubmitted }: { networks: NetworkOption[]; onS
             />
             {error && <p className="text-red-400 text-sm">{error}</p>}
             {success && <p className="text-teal text-sm">Submitted — pending confirmation.</p>}
-            <button type="submit" className="w-full rounded-md bg-gradient-to-br from-gold to-teal py-2 text-ink font-medium hover:opacity-90 transition-opacity">
+            <button type="submit" className="w-full rounded-md bg-gradient-to-br from-gold to-teal py-2 text-onaccent font-medium hover:opacity-90 transition-opacity">
               Submit deposit
             </button>
           </form>
