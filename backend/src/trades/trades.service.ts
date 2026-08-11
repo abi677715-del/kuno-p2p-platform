@@ -15,6 +15,7 @@ import { ConfirmPaymentDto } from './dto/confirm-payment.dto';
 import { ResolveDisputeDto, DisputeOutcome } from './dto/resolve-dispute.dto';
 import { RateTradeDto } from './dto/rate-trade.dto';
 import { tierFor, dailyLimitFor, monthlyLimitFor } from '../common/trader-tier';
+import { TRADE_TIMEOUT_MINUTES } from './trade-timeout.constants';
 
 const REFERRAL_FEE_SHARE_PERCENT = parseFloat(process.env.REFERRAL_FEE_SHARE_PERCENT ?? '20');
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -178,11 +179,23 @@ export class TradesService {
     return trade;
   }
 
-  /** Trade lookup for display — also includes the fee percent that'll apply on release. */
+  /** Trade lookup for display — also includes the fee percent that'll apply on release and the auto-timeout deadline. */
   async getOne(id: string) {
     const trade = await this.findById(id);
     const feePercent = await this.resolveFeePercent(trade);
-    return { ...trade, feePercent };
+    const timeoutAt = this.computeTimeoutAt(trade);
+    return { ...trade, feePercent, timeoutAt };
+  }
+
+  /** When TradeTimeoutService will next act on this trade (auto-cancel or auto-escalate), if applicable. */
+  private computeTimeoutAt(trade: { status: TradeStatus; createdAt: Date; paidAt: Date | null }): string | null {
+    if (trade.status === TradeStatus.ESCROW_LOCKED) {
+      return new Date(trade.createdAt.getTime() + TRADE_TIMEOUT_MINUTES * 60_000).toISOString();
+    }
+    if (trade.status === TradeStatus.PAID && trade.paidAt) {
+      return new Date(trade.paidAt.getTime() + TRADE_TIMEOUT_MINUTES * 60_000).toISOString();
+    }
+    return null;
   }
 
   /**
@@ -371,7 +384,7 @@ export class TradesService {
       throw new BadRequestException('Cannot dispute a finished trade');
     }
 
-       await this.prisma.dispute.create({
+    await this.prisma.dispute.create({
       data: { tradeId, raisedById: userId, reason: dto.reason, evidenceUrl: dto.evidenceUrl, status: DisputeStatus.OPEN },
     });
 
@@ -472,7 +485,7 @@ export class TradesService {
         },
       });
       await this.prisma.trade.update({ where: { id: trade.id }, data: { status: TradeStatus.DISPUTED } });
-      const message = 'The seller didn\u2019t confirm your payment in time — this trade has been escalated to support for review.';
+      const message = 'The seller didn’t confirm your payment in time — this trade has been escalated to support for review.';
       await Promise.all([
         this.notificationsService.create(trade.buyerId, 'DISPUTE_OPENED', { tradeId: trade.id, message }, { subject: 'Trade escalated to support', message, tradeId: trade.id }),
         this.notificationsService.create(trade.sellerId, 'DISPUTE_OPENED', { tradeId: trade.id, message }, { subject: 'Trade escalated to support', message, tradeId: trade.id }),
