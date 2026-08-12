@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/api';
+import PushToggle from '@/components/PushToggle';
 
 type Profile = {
   email: string;
