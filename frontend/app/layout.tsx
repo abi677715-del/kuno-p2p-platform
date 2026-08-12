@@ -4,14 +4,35 @@ import Footer from '../components/Footer';
 import AutoLogout from '../components/AutoLogout';
 import './globals.css';
 
+const SITE_URL = 'https://www.birrly.net';
+const TITLE = 'Birrly — Trade USDT for Birr, peer to peer';
+const DESCRIPTION = 'A peer-to-peer marketplace to exchange USDT and Ethiopian Birr, with escrow-protected trades.';
+
 export const metadata: Metadata = {
-  title: 'Birrly — Trade USDT for Birr, peer to peer',
-  description: 'A peer-to-peer marketplace to exchange USDT and Ethiopian Birr, with escrow-protected trades.',
+  metadataBase: new URL(SITE_URL),
+  title: TITLE,
+  description: DESCRIPTION,
+  keywords: ['USDT', 'Ethiopian Birr', 'ETB', 'peer to peer', 'crypto exchange', 'Ethiopia', 'escrow', 'P2P trading'],
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
     title: 'Birrly',
+  },
+  openGraph: {
+    title: TITLE,
+    description: DESCRIPTION,
+    url: SITE_URL,
+    siteName: 'Birrly',
+    images: [{ url: '/og-image.png', width: 1200, height: 630, alt: 'Birrly — Trade USDT for Birr' }],
+    locale: 'en_US',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: TITLE,
+    description: DESCRIPTION,
+    images: ['/og-image.png'],
   },
 };
 
