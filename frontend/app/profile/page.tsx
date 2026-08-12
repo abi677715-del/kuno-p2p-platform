@@ -165,7 +165,8 @@ export default function ProfilePage() {
           </a>
           <a href="/kyc" className="block text-sm text-teal hover:underline">
             Identity verification (KYC) →
-                    <a href="/settings/relations" className="block text-sm text-teal hover:underline">
+          </a>
+          <a href="/settings/relations" className="block text-sm text-teal hover:underline">
             Blocked & favorite traders →
           </a>
         </div>
