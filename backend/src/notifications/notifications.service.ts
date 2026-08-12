@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 import { NotificationsGateway } from './notifications.gateway';
+import { PushService } from './push.service';
 import { MailService } from '../mail/mail.service';
 import { Prisma } from '@prisma/client';
 
@@ -15,6 +16,7 @@ export class NotificationsService {
   constructor(
     private prisma: PrismaService,
     private gateway: NotificationsGateway,
+    private pushService: PushService,
     private mailService: MailService,
   ) {}
 
@@ -27,6 +29,13 @@ export class NotificationsService {
       if (user) {
         await this.mailService.sendTradeUpdateEmail(user.email, email.subject, email.message, email.tradeId);
       }
+      // Same trade-worthy events that earn an email also get a push, so
+      // someone gets alerted even with the app fully closed.
+      await this.pushService.notify(userId, {
+        title: email.subject,
+        body: email.message,
+        url: `/trades/${email.tradeId}`,
+      });
     }
 
     return notification;
