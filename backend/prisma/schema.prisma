@@ -151,7 +151,7 @@ model User {
   supportMessages      SupportMessage[]
   ratingsGiven         TradeRating[]          @relation("rater")
   ratingsReceived      TradeRating[]          @relation("ratedUser")
-
+  pushSubscriptions    PushSubscription[]
   @@map("users")
 }
 
