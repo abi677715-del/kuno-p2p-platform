@@ -164,10 +164,17 @@ export default function ProfilePage() {
           </a>
           <a href="/kyc" className="block text-sm text-teal hover:underline">
             Identity verification (KYC) →
-          </a>
-          <a href="/settings/relations" className="block text-sm text-teal hover:underline">
+                    <a href="/settings/relations" className="block text-sm text-teal hover:underline">
             Blocked & favorite traders →
           </a>
+        </div>
+
+        <div className="bg-surface border border-white/10 rounded-xl p-6 space-y-3">
+          <h2 className="font-display font-medium text-paper">Notifications</h2>
+          <p className="text-sm text-muted">
+            Get alerted about trade activity even when the app is closed.
+          </p>
+          <PushToggle />
         </div>
       </div>
     </main>
