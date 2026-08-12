@@ -108,7 +108,17 @@ enum SupportTicketStatus {
   OPEN
   RESOLVED
 }
+model PushSubscription {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
 
+  @@map("push_subscriptions")
+}
 model User {
   id                     String     @id @default(uuid())
   bidNumber              Int        @unique @default(autoincrement())
