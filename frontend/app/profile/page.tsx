@@ -1,4 +1,4 @@
-import PushToggle from '@/components/PushToggle';'use client';
+'use client';
 
 import { useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/api';
