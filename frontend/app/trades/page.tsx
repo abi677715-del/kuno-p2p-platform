@@ -105,6 +105,7 @@ export default function TradesListPage() {
                         <p className="text-xs text-muted">
                           {displayName(t.buyer)} (buyer) ↔ {displayName(t.seller)} (seller)
                         </p>
+                        {t.code && <p className="font-mono text-[11px] text-muted/70 mt-1">{t.code}</p>}
                         {['PENDING', 'ESCROW_LOCKED'].includes(t.status) && (
                           <button
                             onClick={(e) => quickCancel(e, t.id)}
