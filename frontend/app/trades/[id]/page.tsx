@@ -174,6 +174,23 @@ export default function TradeRoomPage() {
             </p>
           )}
 
+          {!['COMPLETED', 'CANCELLED'].includes(trade.status) && (isBuyer || isSeller) && (
+            <div className="mt-3 rounded-md border border-gold/30 bg-gold/10 px-3 py-2">
+              {isSeller ? (
+                <p className="text-xs text-gold">
+                  ⚠️ Only confirm payment after you've verified the money has actually landed in your account —
+                  never release funds based on a screenshot or receipt alone. Confirming payment releases escrow
+                  immediately and cannot be undone.
+                </p>
+              ) : (
+                <p className="text-xs text-gold">
+                  ⚠️ Only mark this trade as paid after you've actually sent the payment. Marking paid without
+                  paying is fraud and may get your account suspended.
+                </p>
+              )}
+            </div>
+          )}
+
           {actionError && <p className="text-red-400 text-sm mt-3">{actionError}</p>}
 
           <div className="flex flex-wrap gap-2 mt-4">
