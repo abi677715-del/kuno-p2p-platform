@@ -2,7 +2,7 @@ import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/commo
 import { AdsService } from './ads.service';
 
 const SWEEP_INTERVAL_MS = 5 * 60_000;
-const OFFLINE_MINUTES = 30;
+const OFFLINE_MINUTES = 120;
 
 /**
  * Polls for ads left ACTIVE while their poster has been offline for a while
