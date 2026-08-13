@@ -151,6 +151,8 @@ export default function TradeRoomPage() {
             </span>
           </div>
 
+          {trade.code && <p className="font-mono text-xs text-muted mt-1">{trade.code}</p>}
+
           <TimeoutCountdown timeoutAt={trade.timeoutAt ?? null} status={trade.status} />
 
           <div className="grid grid-cols-2 gap-4 mt-4">
