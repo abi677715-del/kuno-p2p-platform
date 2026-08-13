@@ -8,6 +8,46 @@ import { NetworkIcon } from '@/components/NetworkIcon';
 
 type NetworkOption = { network: string; label: string; withdrawalFeeUsdt?: number };
 
+// How long we tell the user a deposit/withdrawal usually takes, shown as a
+// live countdown while it's still PENDING/PROCESSING — matches the copy in
+// DepositCard/WithdrawCard below ("usually within a few minutes" / "hours").
+const ESTIMATED_MINUTES: Record<string, number> = {
+  DEPOSIT: 5,
+  WITHDRAWAL: 120,
+};
+
+const TX_STATUS_LABEL: Record<string, string> = {
+  PENDING: 'Approving',
+  PROCESSING: 'Processing',
+  CONFIRMED: 'Confirmed',
+  FAILED: 'Failed',
+};
+
+function TxCountdown({ createdAt, type, status }: { createdAt: string; type: string; status: string }) {
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const estimatedMinutes = ESTIMATED_MINUTES[type];
+  if (!estimatedMinutes || !['PENDING', 'PROCESSING'].includes(status)) return null;
+
+  const remainingMs = new Date(createdAt).getTime() + estimatedMinutes * 60_000 - now;
+  if (remainingMs <= 0) {
+    return <p className="text-[11px] text-gold mt-0.5">Almost there — finishing up</p>;
+  }
+
+  const totalMinutes = Math.floor(remainingMs / 60_000);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  const seconds = Math.floor((remainingMs % 60_000) / 1000);
+  const display = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}:${seconds.toString().padStart(2, '0')}`;
+
+  return <p className="text-[11px] text-gold mt-0.5">~{display} remaining</p>;
+}
+
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
 
@@ -102,9 +142,10 @@ export default function WalletPage() {
                       ' shrink-0'
                     }
                   >
-                    {tx.status}
+                    {TX_STATUS_LABEL[tx.status] ?? tx.status}
                   </span>
                 </div>
+                <TxCountdown createdAt={tx.createdAt} type={tx.type} status={tx.status} />
                 <div className="mt-1">
                   {appealedIds.has(tx.id) ? (
                     <p className="text-[11px] text-teal">Appeal submitted</p>
