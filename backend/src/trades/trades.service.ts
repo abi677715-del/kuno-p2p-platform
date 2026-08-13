@@ -16,6 +16,7 @@ import { ResolveDisputeDto, DisputeOutcome } from './dto/resolve-dispute.dto';
 import { RateTradeDto } from './dto/rate-trade.dto';
 import { tierFor, dailyLimitFor, monthlyLimitFor } from '../common/trader-tier';
 import { TRADE_TIMEOUT_MINUTES } from './trade-timeout.constants';
+import { generateTradeCode } from './trade-code';
 
 const REFERRAL_FEE_SHARE_PERCENT = parseFloat(process.env.REFERRAL_FEE_SHARE_PERCENT ?? '20');
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -75,6 +76,7 @@ export class TradesService {
     const trade = await this.prisma.trade.create({
       data: {
         adId: ad.id,
+        code: generateTradeCode(),
         buyerId,
         sellerId,
         amountUsdt,
