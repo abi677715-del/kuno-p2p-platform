@@ -144,7 +144,9 @@ export default function MarketplacePage() {
     <main className="min-h-screen bg-ink px-6 py-10 md:px-12">
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="font-display font-bold text-2xl text-paper">Marketplace</h1>
+          <h1 className="font-display font-bold text-2xl bg-gradient-to-br from-gold to-teal bg-clip-text text-transparent">
+            P2P
+          </h1>
           <div className="flex items-center gap-3">
             <a href="/marketplace/my-ads" className="text-sm text-teal hover:underline">
               My ads
