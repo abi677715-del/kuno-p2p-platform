@@ -274,11 +274,31 @@ model Ad {
 }
 
 model Trade {
-   model Trade {
-   id         String      @id @default(uuid())
-+  code       String?     @unique
-   adId       Stringid         String      @id @default(uuid())
+  id         String      @id @default(uuid())
+  code       String?     @unique
   adId       String
+  ad         Ad          @relation(fields: [adId], references: [id])
+  buyerId    String
+  buyer      User        @relation("buyer", fields: [buyerId], references: [id])
+  sellerId   String
+  seller     User        @relation("seller", fields: [sellerId], references: [id])
+  amountUsdt Decimal     @db.Decimal(20, 8)
+  amountEtb  Decimal     @db.Decimal(20, 4)
+  status     TradeStatus @default(PENDING)
+  createdAt  DateTime    @default(now())
+  paidAt     DateTime?
+  completedAt      DateTime?
+  buyerLastReadAt  DateTime?
+  sellerLastReadAt DateTime?
+  timeoutWarnedAt  DateTime?
+
+  escrow   Escrow?
+  messages TradeMessage[]
+  dispute  Dispute?
+  ratings  TradeRating[]
+
+  @@map("trades")
+}
   ad         Ad          @relation(fields: [adId], references: [id])
   buyerId    String
   buyer      User        @relation("buyer", fields: [buyerId], references: [id])
