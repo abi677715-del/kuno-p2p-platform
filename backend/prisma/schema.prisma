@@ -274,7 +274,10 @@ model Ad {
 }
 
 model Trade {
-  id         String      @id @default(uuid())
+   model Trade {
+   id         String      @id @default(uuid())
++  code       String?     @unique
+   adId       Stringid         String      @id @default(uuid())
   adId       String
   ad         Ad          @relation(fields: [adId], references: [id])
   buyerId    String
