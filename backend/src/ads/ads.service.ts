@@ -72,8 +72,8 @@ export class AdsService {
       where: { status: AdStatus.ACTIVE, pricingMode: AdPricingMode.FIXED },
       select: { priceEtb: true },
     });
-    if (ads.length === 0) {
-      return { rate: 123.4, sampleSize: 0 };
+        if (ads.length === 0) {
+      return { rate: 187.5, sampleSize: 0 };
     }
     const prices = ads.map((a) => parseFloat(a.priceEtb.toString())).sort((a, b) => a - b);
     const mid = Math.floor(prices.length / 2);
