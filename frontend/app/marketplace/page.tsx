@@ -321,6 +321,9 @@ export default function MarketplacePage() {
                   <p className="text-xs text-muted">
                     Limits {formatAmount(ad.minLimitEtb)}–{formatAmount(ad.maxLimitEtb)} ETB
                   </p>
+                  <p className="text-xs text-muted">
+                    Up to {formatAmount(parseFloat(ad.maxLimitEtb) / parseFloat(ad.effectivePriceEtb ?? ad.priceEtb), 4)} USDT
+                  </p>
                 </div>
               </div>
             </a>
@@ -487,12 +490,11 @@ function CreateAdForm({ onCreated }: { onCreated: () => void }) {
       </div>
       {pricingMode === 'FIXED' && (() => {
         const price = parseFloat(priceEtb);
-        const min = parseFloat(minLimitEtb);
         const max = parseFloat(maxLimitEtb);
-        if (!(price > 0) || isNaN(min) || isNaN(max)) return null;
+        if (!(price > 0) || isNaN(max)) return null;
         return (
           <p className="text-xs text-muted -mt-2">
-            ≈ {formatAmount(min / price, 4)}–{formatAmount(max / price, 4)} USDT at this price
+            Up to {formatAmount(max / price, 4)} USDT at this price
           </p>
         );
       })()}
