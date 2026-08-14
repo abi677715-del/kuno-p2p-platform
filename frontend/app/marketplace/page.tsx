@@ -88,26 +88,8 @@ function MerchantBadges({ user }: { user: Ad['user'] }) {
   );
 }
 
-type Trade = {
-  id: string;
-  status: string;
-  amountUsdt: string;
-  amountEtb: string;
-  buyer: { fullName?: string };
-  seller: { fullName?: string };
-};
-
-const ENDED_STATUSES = ['COMPLETED', 'DISPUTED', 'CANCELLED'];
-
-const TRADE_STATUS_COLOR: Record<string, string> = {
-  COMPLETED: 'text-teal',
-  DISPUTED: 'text-red-400',
-  CANCELLED: 'text-muted',
-};
-
 export default function MarketplacePage() {
   const [ads, setAds] = useState<Ad[]>([]);
-  const [trades, setTrades] = useState<Trade[]>([]);
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [tab, setTab] = useState<'BUY' | 'SELL'>('BUY');
@@ -128,12 +110,7 @@ export default function MarketplacePage() {
 
   useEffect(() => {
     loadAds();
-    apiFetch('/trades')
-      .then(setTrades)
-      .catch(() => {});
   }, []);
-
-  const endedTrades = trades.filter((t) => ENDED_STATUSES.includes(t.status));
 
   // "Buy" tab shows sellers' offers (side SELL) — that's who you'd buy USDT from.
   // "Sell" tab shows buyers' offers (side BUY) — that's who you'd sell USDT to.
@@ -334,33 +311,6 @@ export default function MarketplacePage() {
             </p>
           )}
         </div>
-
-        {endedTrades.length > 0 && (
-          <div className="mt-12 pt-8 border-t border-white/10">
-            <h2 className="font-display font-medium text-paper mb-4">Your trade history</h2>
-            <div className="space-y-3">
-              {endedTrades.map((t) => (
-                <a
-                  key={t.id}
-                  href={`/trades/${t.id}`}
-                  className="block bg-surface border border-white/10 rounded-xl p-4 hover:border-white/25 transition-colors"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className={`text-xs font-mono uppercase tracking-wide ${TRADE_STATUS_COLOR[t.status] ?? 'text-muted'}`}>
-                      {t.status}
-                    </span>
-                    <span className="font-mono text-sm text-paper">
-                      {formatAmount(t.amountUsdt, 4)} USDT ≈ {formatAmount(t.amountEtb)} ETB
-                    </span>
-                  </div>
-                  <p className="text-xs text-muted mt-1">
-                    {displayName(t.buyer)} (buyer) ↔ {displayName(t.seller)} (seller)
-                  </p>
-                </a>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
     </main>
   );
