@@ -145,7 +145,8 @@ export default function AdDetailPage() {
           )}
         </p>
         <p className="text-xs text-muted mt-1">
-          Limits {formatAmount(ad.minLimitEtb)}–{formatAmount(ad.maxLimitEtb)} ETB · {ad.paymentMethods.join(', ')}
+          Limits {formatAmount(ad.minLimitEtb)}–{formatAmount(ad.maxLimitEtb)} ETB
+          {' '}(up to {formatAmount(maxLimit / price, 4)} USDT) · {ad.paymentMethods.join(', ')}
         </p>
         {ad.description && <p className="text-sm text-paper/80 mt-3 bg-surfaceRaised rounded-md p-3">{ad.description}</p>}
 
