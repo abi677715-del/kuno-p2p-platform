@@ -74,8 +74,7 @@ export default function MyAdsPage() {
                 <p className="text-xs text-muted mt-1">
                   Limits {formatAmount(ad.minLimitEtb)}–{formatAmount(ad.maxLimitEtb)} ETB
                   {' '}
-                  (≈ {formatAmount(parseFloat(ad.minLimitEtb) / parseFloat(ad.priceEtb), 4)}–
-                  {formatAmount(parseFloat(ad.maxLimitEtb) / parseFloat(ad.priceEtb), 4)} USDT) · {ad.paymentMethods.join(', ')}
+                  (up to {formatAmount(parseFloat(ad.maxLimitEtb) / parseFloat(ad.priceEtb), 4)} USDT) · {ad.paymentMethods.join(', ')}
                 </p>
               </div>
               <button
