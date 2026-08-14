@@ -88,8 +88,26 @@ function MerchantBadges({ user }: { user: Ad['user'] }) {
   );
 }
 
+type Trade = {
+  id: string;
+  status: string;
+  amountUsdt: string;
+  amountEtb: string;
+  buyer: { fullName?: string };
+  seller: { fullName?: string };
+};
+
+const ENDED_STATUSES = ['COMPLETED', 'DISPUTED', 'CANCELLED'];
+
+const TRADE_STATUS_COLOR: Record<string, string> = {
+  COMPLETED: 'text-teal',
+  DISPUTED: 'text-red-400',
+  CANCELLED: 'text-muted',
+};
+
 export default function MarketplacePage() {
   const [ads, setAds] = useState<Ad[]>([]);
+  const [trades, setTrades] = useState<Trade[]>([]);
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [tab, setTab] = useState<'BUY' | 'SELL'>('BUY');
@@ -110,7 +128,12 @@ export default function MarketplacePage() {
 
   useEffect(() => {
     loadAds();
+    apiFetch('/trades')
+      .then(setTrades)
+      .catch(() => {});
   }, []);
+
+  const endedTrades = trades.filter((t) => ENDED_STATUSES.includes(t.status));
 
   // "Buy" tab shows sellers' offers (side SELL) — that's who you'd buy USDT from.
   // "Sell" tab shows buyers' offers (side BUY) — that's who you'd sell USDT to.
@@ -144,9 +167,7 @@ export default function MarketplacePage() {
     <main className="min-h-screen bg-ink px-6 py-10 md:px-12">
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="font-display font-bold text-2xl bg-gradient-to-br from-gold to-teal bg-clip-text text-transparent">
-            P2P
-          </h1>
+          <h1 className="font-display font-bold text-2xl text-paper">Marketplace</h1>
           <div className="flex items-center gap-3">
             <a href="/marketplace/my-ads" className="text-sm text-teal hover:underline">
               My ads
@@ -310,6 +331,33 @@ export default function MarketplacePage() {
             </p>
           )}
         </div>
+
+        {endedTrades.length > 0 && (
+          <div className="mt-12 pt-8 border-t border-white/10">
+            <h2 className="font-display font-medium text-paper mb-4">Your trade history</h2>
+            <div className="space-y-3">
+              {endedTrades.map((t) => (
+                <a
+                  key={t.id}
+                  href={`/trades/${t.id}`}
+                  className="block bg-surface border border-white/10 rounded-xl p-4 hover:border-white/25 transition-colors"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className={`text-xs font-mono uppercase tracking-wide ${TRADE_STATUS_COLOR[t.status] ?? 'text-muted'}`}>
+                      {t.status}
+                    </span>
+                    <span className="font-mono text-sm text-paper">
+                      {formatAmount(t.amountUsdt, 4)} USDT ≈ {formatAmount(t.amountEtb)} ETB
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted mt-1">
+                    {displayName(t.buyer)} (buyer) ↔ {displayName(t.seller)} (seller)
+                  </p>
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </main>
   );
@@ -348,6 +396,16 @@ function CreateAdForm({ onCreated }: { onCreated: () => void }) {
     setError('');
     if (paymentMethods.length === 0) {
       setError('Select at least one payment method');
+      return;
+    }
+    const minNum = parseFloat(minLimitEtb);
+    const maxNum = parseFloat(maxLimitEtb);
+    if (!(minNum > 0) || !(maxNum > 0)) {
+      setError('Min and max limits must be greater than 0 ETB');
+      return;
+    }
+    if (minNum > maxNum) {
+      setError(`Min limit (${minNum} ETB) can't be greater than the max limit (${maxNum} ETB) — swap them or fix the amounts.`);
       return;
     }
     try {
@@ -427,6 +485,17 @@ function CreateAdForm({ onCreated }: { onCreated: () => void }) {
         <Field label="Min limit (ETB)" value={minLimitEtb} onChange={setMinLimitEtb} />
         <Field label="Max limit (ETB)" value={maxLimitEtb} onChange={setMaxLimitEtb} />
       </div>
+      {pricingMode === 'FIXED' && (() => {
+        const price = parseFloat(priceEtb);
+        const min = parseFloat(minLimitEtb);
+        const max = parseFloat(maxLimitEtb);
+        if (!(price > 0) || isNaN(min) || isNaN(max)) return null;
+        return (
+          <p className="text-xs text-muted -mt-2">
+            ≈ {formatAmount(min / price, 4)}–{formatAmount(max / price, 4)} USDT at this price
+          </p>
+        );
+      })()}
       <div>
         <span className="text-xs text-muted block mb-2">Payment methods</span>
         <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
