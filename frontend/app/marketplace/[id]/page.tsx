@@ -23,6 +23,7 @@ export default function AdDetailPage() {
   const params = useParams();
   const adId = params.id as string;
   const [ad, setAd] = useState<any>(null);
+  const [me, setMe] = useState<any>(null);
   const [amountUsdt, setAmountUsdt] = useState('50');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -32,6 +33,7 @@ export default function AdDetailPage() {
   useEffect(() => {
     apiFetch(`/ads/${adId}`).then(setAd).catch((e) => setError(e.message));
     apiFetch('/relations/mine').then(setRelations).catch(() => {});
+    apiFetch('/users/me').then(setMe).catch(() => {});
   }, [adId]);
 
   async function startTrade(e: React.FormEvent) {
@@ -69,6 +71,7 @@ export default function AdDetailPage() {
 
   const isBlocked = relations.some((r) => r.targetUser.id === ad.user.id && r.type === 'BLOCK');
   const isFavorited = relations.some((r) => r.targetUser.id === ad.user.id && r.type === 'FAVORITE');
+  const isOwnAd = me?.id === ad.user.id;
 
   const price = parseFloat(ad.effectivePriceEtb ?? ad.priceEtb);
   const parsedUsdt = parseFloat(amountUsdt);
@@ -84,24 +87,26 @@ export default function AdDetailPage() {
           <span className={`text-xs font-mono uppercase ${ad.side === 'SELL' ? 'text-teal' : 'text-gold'}`}>
             {ad.side === 'SELL' ? 'Selling USDT' : 'Buying USDT'}
           </span>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => toggleRelation('favorite')}
-              disabled={relationBusy}
-              className={`text-xs disabled:opacity-50 ${isFavorited ? 'text-gold' : 'text-muted hover:text-gold'}`}
-              title="Favorite this trader"
-            >
-              {isFavorited ? '★ Favorited' : '☆ Favorite'}
-            </button>
-            <button
-              onClick={() => toggleRelation('block')}
-              disabled={relationBusy}
-              className={`text-xs disabled:opacity-50 ${isBlocked ? 'text-red-400' : 'text-muted hover:text-red-400'}`}
-              title="Block this trader"
-            >
-              {isBlocked ? 'Unblock' : 'Block'}
-            </button>
-          </div>
+          {!isOwnAd && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => toggleRelation('favorite')}
+                disabled={relationBusy}
+                className={`text-xs disabled:opacity-50 ${isFavorited ? 'text-gold' : 'text-muted hover:text-gold'}`}
+                title="Favorite this trader"
+              >
+                {isFavorited ? '★ Favorited' : '☆ Favorite'}
+              </button>
+              <button
+                onClick={() => toggleRelation('block')}
+                disabled={relationBusy}
+                className={`text-xs disabled:opacity-50 ${isBlocked ? 'text-red-400' : 'text-muted hover:text-red-400'}`}
+                title="Block this trader"
+              >
+                {isBlocked ? 'Unblock' : 'Block'}
+              </button>
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-1.5 mt-1">
           <span className={`inline-block h-1.5 w-1.5 rounded-full ${isOnline(ad.user.lastSeenAt) ? 'bg-teal' : 'bg-muted'}`} />
@@ -150,38 +155,47 @@ export default function AdDetailPage() {
         </p>
         {ad.description && <p className="text-sm text-paper/80 mt-3 bg-surfaceRaised rounded-md p-3">{ad.description}</p>}
 
-        <form onSubmit={startTrade} className="mt-6 space-y-4">
-          <label className="block">
-            <span className="text-xs text-muted block mb-1">Amount of USDT to trade</span>
-            <input
-              value={amountUsdt}
-              onChange={(e) => setAmountUsdt(e.target.value)}
-              className={`w-full bg-surfaceRaised rounded-md px-3 py-2 text-paper outline-none focus:ring-2 ${
-                outOfRange ? 'ring-2 ring-red-400/60 focus:ring-red-400/60' : 'focus:ring-teal'
-              }`}
-            />
-            {amountEtb !== null && (
-              <p className={`text-xs mt-1 ${outOfRange ? 'text-red-400' : 'text-muted'}`}>
-                ≈ {formatAmount(amountEtb)} ETB
-                {outOfRange &&
-                  (amountEtb < minLimit
-                    ? ` — below this ad's minimum of ${formatAmount(minLimit)} ETB`
-                    : ` — above this ad's maximum of ${formatAmount(maxLimit)} ETB`)}
-              </p>
-            )}
-          </label>
-          {error && <p className="text-red-400 text-sm">{error}</p>}
-          <p className="text-xs text-muted">
-            A {ad.user.isMerchant ? '1%' : '2%'} platform fee is deducted from the USDT when this trade completes.
-          </p>
-          <button
-            type="submit"
-            disabled={loading || isBlocked || outOfRange || amountEtb === null}
-            className="w-full rounded-md bg-gradient-to-br from-gold to-teal py-2 text-onaccent font-medium hover:opacity-90 transition-opacity disabled:opacity-60"
-          >
-            {isBlocked ? 'You have blocked this trader' : loading ? 'Starting trade…' : 'Start trade'}
-          </button>
-        </form>
+        {isOwnAd ? (
+          <div className="mt-6 rounded-md bg-surfaceRaised p-4 text-center">
+            <p className="text-sm text-muted">This is your own ad — you can't trade against it.</p>
+            <a href="/marketplace/my-ads" className="text-sm text-teal hover:underline mt-1 inline-block">
+              Manage it from My ads
+            </a>
+          </div>
+        ) : (
+          <form onSubmit={startTrade} className="mt-6 space-y-4">
+            <label className="block">
+              <span className="text-xs text-muted block mb-1">Amount of USDT to trade</span>
+              <input
+                value={amountUsdt}
+                onChange={(e) => setAmountUsdt(e.target.value)}
+                className={`w-full bg-surfaceRaised rounded-md px-3 py-2 text-paper outline-none focus:ring-2 ${
+                  outOfRange ? 'ring-2 ring-red-400/60 focus:ring-red-400/60' : 'focus:ring-teal'
+                }`}
+              />
+              {amountEtb !== null && (
+                <p className={`text-xs mt-1 ${outOfRange ? 'text-red-400' : 'text-muted'}`}>
+                  ≈ {formatAmount(amountEtb)} ETB
+                  {outOfRange &&
+                    (amountEtb < minLimit
+                      ? ` — below this ad's minimum of ${formatAmount(minLimit)} ETB`
+                      : ` — above this ad's maximum of ${formatAmount(maxLimit)} ETB`)}
+                </p>
+              )}
+            </label>
+            {error && <p className="text-red-400 text-sm">{error}</p>}
+            <p className="text-xs text-muted">
+              A {ad.user.isMerchant ? '1%' : '2%'} platform fee is deducted from the USDT when this trade completes.
+            </p>
+            <button
+              type="submit"
+              disabled={loading || isBlocked || outOfRange || amountEtb === null}
+              className="w-full rounded-md bg-gradient-to-br from-gold to-teal py-2 text-onaccent font-medium hover:opacity-90 transition-opacity disabled:opacity-60"
+            >
+              {isBlocked ? 'You have blocked this trader' : loading ? 'Starting trade…' : 'Start trade'}
+            </button>
+          </form>
+        )}
       </div>
     </main>
   );
