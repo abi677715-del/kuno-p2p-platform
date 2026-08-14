@@ -70,6 +70,13 @@ export default function AdDetailPage() {
   const isBlocked = relations.some((r) => r.targetUser.id === ad.user.id && r.type === 'BLOCK');
   const isFavorited = relations.some((r) => r.targetUser.id === ad.user.id && r.type === 'FAVORITE');
 
+  const price = parseFloat(ad.effectivePriceEtb ?? ad.priceEtb);
+  const parsedUsdt = parseFloat(amountUsdt);
+  const amountEtb = !isNaN(parsedUsdt) && parsedUsdt > 0 ? parsedUsdt * price : null;
+  const minLimit = parseFloat(ad.minLimitEtb);
+  const maxLimit = parseFloat(ad.maxLimitEtb);
+  const outOfRange = amountEtb !== null && (amountEtb < minLimit || amountEtb > maxLimit);
+
   return (
     <main className="min-h-screen bg-ink px-6 py-10 md:px-12">
       <div className="max-w-md mx-auto bg-surface border border-white/10 rounded-xl p-6">
@@ -148,8 +155,19 @@ export default function AdDetailPage() {
             <input
               value={amountUsdt}
               onChange={(e) => setAmountUsdt(e.target.value)}
-              className="w-full bg-surfaceRaised rounded-md px-3 py-2 text-paper outline-none focus:ring-2 focus:ring-teal"
+              className={`w-full bg-surfaceRaised rounded-md px-3 py-2 text-paper outline-none focus:ring-2 ${
+                outOfRange ? 'ring-2 ring-red-400/60 focus:ring-red-400/60' : 'focus:ring-teal'
+              }`}
             />
+            {amountEtb !== null && (
+              <p className={`text-xs mt-1 ${outOfRange ? 'text-red-400' : 'text-muted'}`}>
+                ≈ {formatAmount(amountEtb)} ETB
+                {outOfRange &&
+                  (amountEtb < minLimit
+                    ? ` — below this ad's minimum of ${formatAmount(minLimit)} ETB`
+                    : ` — above this ad's maximum of ${formatAmount(maxLimit)} ETB`)}
+              </p>
+            )}
           </label>
           {error && <p className="text-red-400 text-sm">{error}</p>}
           <p className="text-xs text-muted">
@@ -157,7 +175,7 @@ export default function AdDetailPage() {
           </p>
           <button
             type="submit"
-            disabled={loading || isBlocked}
+            disabled={loading || isBlocked || outOfRange || amountEtb === null}
             className="w-full rounded-md bg-gradient-to-br from-gold to-teal py-2 text-onaccent font-medium hover:opacity-90 transition-opacity disabled:opacity-60"
           >
             {isBlocked ? 'You have blocked this trader' : loading ? 'Starting trade…' : 'Start trade'}
