@@ -16,7 +16,7 @@ import { RelationsModule } from './relations/relations.module';
 import { AdminModule } from './admin/admin.module';
 import { MerchantModule } from './merchant/merchant.module';
 import { AppealsModule } from './appeals/appeals.module';
-import { TransfersModule } from './transfers/transfers.module';
+import { TransfersModule } from './transfers/transfers.module';// force
 import { AppController } from './app.controller';
 
 @Module({
