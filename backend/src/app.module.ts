@@ -16,6 +16,7 @@ import { RelationsModule } from './relations/relations.module';
 import { AdminModule } from './admin/admin.module';
 import { MerchantModule } from './merchant/merchant.module';
 import { AppealsModule } from './appeals/appeals.module';
+import { TransfersModule } from './transfers/transfers.module';
 import { AppController } from './app.controller';
 
 @Module({
@@ -39,8 +40,8 @@ import { AppController } from './app.controller';
     AdminModule,
     MerchantModule,
     AppealsModule,
+    TransfersModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}
-V
