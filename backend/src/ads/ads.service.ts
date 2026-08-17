@@ -18,6 +18,27 @@ export class AdsService {
   ) {}
 
   /**
+   * Guards against ads with nonsensical or unusable limits — e.g. the min/max
+   * typed in the wrong order, zero, or negative — which would otherwise post
+   * successfully and then reject every trade attempt with a confusing error.
+   */
+  private assertValidLimits(minLimitEtb: string, maxLimitEtb: string) {
+    const min = parseFloat(minLimitEtb);
+    const max = parseFloat(maxLimitEtb);
+    if (!(min > 0)) {
+      throw new BadRequestException('Minimum limit must be greater than 0 ETB');
+    }
+    if (!(max > 0)) {
+      throw new BadRequestException('Maximum limit must be greater than 0 ETB');
+    }
+    if (min > max) {
+      throw new BadRequestException(
+        `Minimum limit (${min} ETB) can't be greater than the maximum limit (${max} ETB) — swap them or fix the amounts.`,
+      );
+    }
+  }
+
+  /**
    * A SELL ad promises up to maxLimitEtb worth of USDT — refuse to post or
    * reactivate it if the seller doesn't actually hold enough to cover that
    * promise, so buyers never hit a surprise "insufficient balance" at trade time.
@@ -41,6 +62,8 @@ export class AdsService {
     if (pricingMode === AdPricingMode.FLOATING && dto.marginPercent === undefined) {
       throw new BadRequestException('Floating-price ads need a margin percentage');
     }
+
+    this.assertValidLimits(dto.minLimitEtb, dto.maxLimitEtb);
 
     if (dto.side === AdSide.SELL) {
       await this.assertSellAdFunded(userId, dto.priceEtb, dto.maxLimitEtb);
@@ -72,7 +95,7 @@ export class AdsService {
       where: { status: AdStatus.ACTIVE, pricingMode: AdPricingMode.FIXED },
       select: { priceEtb: true },
     });
-        if (ads.length === 0) {
+    if (ads.length === 0) {
       return { rate: 187.5, sampleSize: 0 };
     }
     const prices = ads.map((a) => parseFloat(a.priceEtb.toString())).sort((a, b) => a - b);
@@ -198,6 +221,36 @@ export class AdsService {
     });
 
     return { ...userWithStats, ads: adsWithPrice, recentRatings };
+  }
+
+  /**
+   * For Express/Quick trade: finds the best currently active ad for the
+   * opposite side of what the user wants, at the best price, whose limits
+   * the requested amount actually fits within — so "quick buy 50 USDT" skips
+   * ad-browsing entirely and goes straight to the best deal available now.
+   */
+  async findBestMatch(wantSide: AdSide, amountUsdt: number, excludeUserId: string) {
+    const adSide = wantSide === AdSide.BUY ? AdSide.SELL : AdSide.BUY;
+    const ads = await this.prisma.ad.findMany({
+      where: { status: AdStatus.ACTIVE, side: adSide, userId: { not: excludeUserId } },
+    });
+    if (ads.length === 0) return null;
+
+    const withPrice = await this.attachEffectivePrice(ads);
+    const eligible = withPrice.filter((ad) => {
+      const price = parseFloat(ad.effectivePriceEtb);
+      const amountEtb = amountUsdt * price;
+      return amountEtb >= parseFloat(ad.minLimitEtb.toString()) && amountEtb <= parseFloat(ad.maxLimitEtb.toString());
+    });
+    if (eligible.length === 0) return null;
+
+    // Buying USDT: the cheapest seller wins. Selling USDT: the highest-paying buyer wins.
+    eligible.sort((a, b) => {
+      const pa = parseFloat(a.effectivePriceEtb);
+      const pb = parseFloat(b.effectivePriceEtb);
+      return wantSide === AdSide.BUY ? pa - pb : pb - pa;
+    });
+    return eligible[0];
   }
 
   async findActive(side?: AdSide) {
