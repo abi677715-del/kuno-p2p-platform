@@ -49,6 +49,8 @@ enum TxType {
   REFUND
   FEE
   REFERRAL
+  TRANSFER_SENT
+  TRANSFER_RECEIVED
 }
 
 enum TxStatus {
@@ -108,17 +110,7 @@ enum SupportTicketStatus {
   OPEN
   RESOLVED
 }
-model PushSubscription {
-  id        String   @id @default(uuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  endpoint  String   @unique
-  p256dh    String
-  auth      String
-  createdAt DateTime @default(now())
 
-  @@map("push_subscriptions")
-}
 model User {
   id                     String     @id @default(uuid())
   bidNumber              Int        @unique @default(autoincrement())
@@ -158,11 +150,27 @@ model User {
   relationsOfMe    UserRelation[]   @relation("relationTarget")
   merchantApplications MerchantApplication[]
   transactionAppeals   TransactionAppeal[]
+  tradeAppeals         TradeAppeal[]
+  transfersSent        InternalTransfer[]     @relation("transferSender")
+  transfersReceived    InternalTransfer[]     @relation("transferRecipient")
   supportMessages      SupportMessage[]
   ratingsGiven         TradeRating[]          @relation("rater")
   ratingsReceived      TradeRating[]          @relation("ratedUser")
   pushSubscriptions    PushSubscription[]
+
   @@map("users")
+}
+
+model PushSubscription {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  @@map("push_subscriptions")
 }
 
 model MerchantApplication {
@@ -275,7 +283,6 @@ model Ad {
 
 model Trade {
   id         String      @id @default(uuid())
-  code       String?     @unique
   adId       String
   ad         Ad          @relation(fields: [adId], references: [id])
   buyerId    String
@@ -296,6 +303,7 @@ model Trade {
   messages TradeMessage[]
   dispute  Dispute?
   ratings  TradeRating[]
+  appeals  TradeAppeal[]
 
   @@map("trades")
 }
@@ -360,6 +368,43 @@ enum AppealStatus {
   OPEN
   RESOLVED
   DISMISSED
+}
+
+// A direct, fee-free wallet-to-wallet transfer between two users — no ad or trade involved. The
+// recipient is looked up by their public trader ID (BID code), never by email, so senders can't
+// enumerate accounts. Each transfer also writes a TRANSFER_SENT/TRANSFER_RECEIVED WalletTransaction
+// pair so it shows up in both parties' normal transaction history for free.
+model InternalTransfer {
+  id         String   @id @default(uuid())
+  fromUserId String
+  fromUser   User     @relation("transferSender", fields: [fromUserId], references: [id])
+  toUserId   String
+  toUser     User     @relation("transferRecipient", fields: [toUserId], references: [id])
+  currency   Currency
+  amount     Decimal  @db.Decimal(20, 8)
+  note       String?  @db.Text
+  createdAt  DateTime @default(now())
+
+  @@map("internal_transfers")
+}
+
+// Lets either party contest a trade after it's already COMPLETED (funds released) — e.g. a chargeback
+// discovered later. Unlike Dispute, this never touches escrow: by the time a trade is COMPLETED the
+// escrow is already released, so resolution here is informational/administrative only, not a fund move.
+model TradeAppeal {
+  id         String       @id @default(uuid())
+  tradeId    String
+  trade      Trade        @relation(fields: [tradeId], references: [id])
+  userId     String
+  user       User         @relation(fields: [userId], references: [id])
+  reason     String       @db.Text
+  status     AppealStatus @default(OPEN)
+  resolution String?      @db.Text
+  resolvedBy String?
+  resolvedAt DateTime?
+  createdAt  DateTime     @default(now())
+
+  @@map("trade_appeals")
 }
 
 // Lets a user contest a specific wallet transaction (a rejected deposit/withdrawal, a fee they disagree with, etc.) instead of only being able to raise a dispute on a trade.
