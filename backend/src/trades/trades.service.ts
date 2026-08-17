@@ -9,6 +9,7 @@ import { RelationsService } from '../relations/relations.service';
 import { UsersService } from '../users/users.service';
 import { AdSide, Currency, DisputeStatus, EscrowStatus, TradeStatus } from '@prisma/client';
 import { CreateTradeDto } from './dto/create-trade.dto';
+import { QuickTradeDto } from './dto/quick-trade.dto';
 import { DisputeTradeDto } from './dto/dispute-trade.dto';
 import { SendMessageDto } from './dto/send-message.dto';
 import { ConfirmPaymentDto } from './dto/confirm-payment.dto';
@@ -16,7 +17,6 @@ import { ResolveDisputeDto, DisputeOutcome } from './dto/resolve-dispute.dto';
 import { RateTradeDto } from './dto/rate-trade.dto';
 import { tierFor, dailyLimitFor, monthlyLimitFor } from '../common/trader-tier';
 import { TRADE_TIMEOUT_MINUTES } from './trade-timeout.constants';
-import { generateTradeCode } from './trade-code';
 
 const REFERRAL_FEE_SHARE_PERCENT = parseFloat(process.env.REFERRAL_FEE_SHARE_PERCENT ?? '20');
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -76,7 +76,6 @@ export class TradesService {
     const trade = await this.prisma.trade.create({
       data: {
         adId: ad.id,
-        code: generateTradeCode(),
         buyerId,
         sellerId,
         amountUsdt,
@@ -104,6 +103,26 @@ export class TradesService {
       );
       return updated;
     });
+  }
+
+  /**
+   * Express/Quick trade: skips ad-browsing entirely — finds the best-priced
+   * active ad that fits the requested amount and starts a trade against it,
+   * reusing createTrade so it gets exactly the same validation (KYC, blocks,
+   * limits, volume caps) as a normal manually-picked trade.
+   */
+  async quickTrade(takerId: string, dto: QuickTradeDto) {
+    const amountNum = parseFloat(dto.amountUsdt);
+    if (!(amountNum > 0)) {
+      throw new BadRequestException('Amount must be greater than 0');
+    }
+
+    const bestAd = await this.adsService.findBestMatch(dto.side, amountNum, takerId);
+    if (!bestAd) {
+      throw new BadRequestException('No active offers currently match that amount — try the marketplace to browse manually.');
+    }
+
+    return this.createTrade(takerId, { adId: bestAd.id, amountUsdt: dto.amountUsdt });
   }
 
   /**
