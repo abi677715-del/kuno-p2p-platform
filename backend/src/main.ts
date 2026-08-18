@@ -12,7 +12,6 @@ import { ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { json } from 'express';
 import helmet from 'helmet';
-import { join } from 'path';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -26,7 +25,9 @@ async function bootstrap() {
     Boolean,
   ) as string[];
   app.enableCors({ origin: allowedOrigins, credentials: true });
-  app.useStaticAssets(join(__dirname, '..', 'uploads'), { prefix: '/uploads' });
+  // KYC documents/selfies used to be served here as plain public static files —
+  // removed so they can only be reached through the authenticated
+  // GET /kyc/file/:id/:type route (owner or admin/support only).
   const port = process.env.PORT ?? 4000;
   console.log('BOOT: about to listen on port', port);
   await app.listen(port);
