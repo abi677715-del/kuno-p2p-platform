@@ -1,42 +1,71 @@
-console.log('BOOT: script started');
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../common/prisma.service';
+import { BannerAdStatus, BannerPlacement } from '@prisma/client';
+import { SubmitBannerAdDto } from './dto/submit-banner-ad.dto';
+import { RejectBannerAdDto } from './dto/reject-banner-ad.dto';
 
-process.on('uncaughtException', (err) => {
-  console.error('UNCAUGHT EXCEPTION:', err);
-});
-process.on('unhandledRejection', (reason) => {
-  console.error('UNHANDLED REJECTION:', reason);
-});
+@Injectable()
+export class BannerAdsService {
+  constructor(private prisma: PrismaService) {}
 
-import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
-import { NestExpressApplication } from '@nestjs/platform-express';
-import { json } from 'express';
-import helmet from 'helmet';
-import { join } from 'path';
-import { AppModule } from './app.module';
+  submit(dto: SubmitBannerAdDto, videoUrl: string) {
+    return this.prisma.bannerAd.create({
+      data: {
+        advertiserName: dto.advertiserName,
+        advertiserEmail: dto.advertiserEmail,
+        title: dto.title,
+        linkUrl: dto.linkUrl,
+        videoUrl,
+        placements: dto.placements,
+      },
+    });
+  }
 
-async function bootstrap() {
-  console.log('BOOT: creating app');
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
-  console.log('BOOT: app created');
-  app.use(helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: false }));
-  app.use(json({ limit: '2mb' }));
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
-  const allowedOrigins = [process.env.FRONTEND_URL, 'https://supportive-growth-production-b6d0.up.railway.app'].filter(
-    Boolean,
-  ) as string[];
-  app.enableCors({ origin: allowedOrigins, credentials: true });
-  // KYC documents/selfies live under ./uploads and are intentionally NOT
-  // served here — they're only reachable through the authenticated
-  // GET /kyc/file/:id/:type route (owner or admin/support only). Banner ad
-  // videos are meant to be public (visitors watch them without logging in),
-  // so they live in a separate folder that IS served here.
-  app.useStaticAssets(join(process.cwd(), 'public-uploads'), { prefix: '/public-uploads' });
-  const port = process.env.PORT ?? 4000;
-  console.log('BOOT: about to listen on port', port);
-  await app.listen(port);
-  console.log(`API running on http://localhost:${port}`);
+  /** Approved ads for a given slot — or all approved ads if no placement is given. */
+  listActive(placement?: BannerPlacement) {
+    return this.prisma.bannerAd.findMany({
+      where: {
+        status: BannerAdStatus.APPROVED,
+        ...(placement ? { placements: { has: placement } } : {}),
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  listPending() {
+    return this.prisma.bannerAd.findMany({
+      where: { status: BannerAdStatus.PENDING },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
+  async approve(adminId: string, id: string) {
+    const record = await this.getById(id);
+    const updated = await this.prisma.bannerAd.update({
+      where: { id: record.id },
+      data: { status: BannerAdStatus.APPROVED, reviewedBy: adminId, reviewedAt: new Date() },
+    });
+    await this.prisma.adminAuditLog.create({
+      data: { adminId, action: 'BANNER_AD_APPROVED', targetId: record.id },
+    });
+    return updated;
+  }
+
+  async reject(adminId: string, id: string, dto: RejectBannerAdDto) {
+    const record = await this.getById(id);
+    const updated = await this.prisma.bannerAd.update({
+      where: { id: record.id },
+      data: { status: BannerAdStatus.REJECTED, rejectionReason: dto.reason, reviewedBy: adminId, reviewedAt: new Date() },
+    });
+    await this.prisma.adminAuditLog.create({
+      data: { adminId, action: `BANNER_AD_REJECTED: ${dto.reason}`, targetId: record.id },
+    });
+    return updated;
+  }
+
+  private async getById(id: string) {
+    const record = await this.prisma.bannerAd.findUnique({ where: { id } });
+    if (!record) throw new NotFoundException('Banner ad submission not found');
+    return record;
+  }
 }
-bootstrap().catch((err) => {
-  console.error('BOOTSTRAP FAILED:', err);
-});
