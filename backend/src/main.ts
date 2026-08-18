@@ -12,6 +12,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { json } from 'express';
 import helmet from 'helmet';
+import { join } from 'path';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -25,9 +26,12 @@ async function bootstrap() {
     Boolean,
   ) as string[];
   app.enableCors({ origin: allowedOrigins, credentials: true });
-  // KYC documents/selfies used to be served here as plain public static files —
-  // removed so they can only be reached through the authenticated
-  // GET /kyc/file/:id/:type route (owner or admin/support only).
+  // KYC documents/selfies live under ./uploads and are intentionally NOT
+  // served here — they're only reachable through the authenticated
+  // GET /kyc/file/:id/:type route (owner or admin/support only). Banner ad
+  // videos are meant to be public (visitors watch them without logging in),
+  // so they live in a separate folder that IS served here.
+  app.useStaticAssets(join(process.cwd(), 'public-uploads'), { prefix: '/public-uploads' });
   const port = process.env.PORT ?? 4000;
   console.log('BOOT: about to listen on port', port);
   await app.listen(port);
