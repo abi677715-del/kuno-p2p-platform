@@ -8,9 +8,6 @@ import { NetworkIcon } from '@/components/NetworkIcon';
 
 type NetworkOption = { network: string; label: string; withdrawalFeeUsdt?: number };
 
-// How long we tell the user a deposit/withdrawal usually takes, shown as a
-// live countdown while it's still PENDING/PROCESSING — matches the copy in
-// DepositCard/WithdrawCard below ("usually within a few minutes" / "hours").
 const ESTIMATED_MINUTES: Record<string, number> = {
   DEPOSIT: 5,
   WITHDRAWAL: 120,
@@ -122,6 +119,8 @@ export default function WalletPage() {
         {networks.length > 0 && <DepositCard networks={networks} onSubmitted={loadAll} />}
 
         {networks.length > 0 && <WithdrawCard networks={networks} onSubmitted={loadAll} />}
+
+        <SendCard onSubmitted={loadAll} />
 
         <div className="bg-surface border border-white/10 rounded-xl p-5">
           <h2 className="font-display font-medium text-paper mb-3">Recent activity</h2>
@@ -325,7 +324,7 @@ function DepositCard({ networks, onSubmitted }: { networks: NetworkOption[]; onS
 
       {network && depositInfo && (
         <>
-          <div className=":bg-[#fff] rounded-lg p-4 mb-3 flex justify-center">
+          <div className="bg-[#fff] rounded-lg p-4 mb-3 flex justify-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={depositInfo.qrCodeDataUrl} alt="Deposit address QR code" width={160} height={160} />
           </div>
@@ -429,6 +428,104 @@ function WithdrawCard({ networks, onSubmitted }: { networks: NetworkOption[]; on
         {success && <p className="text-teal text-sm">Withdrawal requested.</p>}
         <button type="submit" className="w-full rounded-md border border-white/15 py-2 text-paper font-medium">
           Request withdrawal
+        </button>
+      </form>
+    </div>
+  );
+}
+
+function SendCard({ onSubmitted }: { onSubmitted: () => void }) {
+  const [recipientBid, setRecipientBid] = useState('');
+  const [recipient, setRecipient] = useState<any>(undefined);
+  const [amount, setAmount] = useState('');
+  const [note, setNote] = useState('');
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    const bid = recipientBid.trim();
+    if (!bid) {
+      setRecipient(undefined);
+      return;
+    }
+    const timeout = setTimeout(() => {
+      apiFetch(`/transfers/resolve?bid=${encodeURIComponent(bid)}`)
+        .then(setRecipient)
+        .catch(() => setRecipient(null));
+    }, 400);
+    return () => clearTimeout(timeout);
+  }, [recipientBid]);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError('');
+    setSuccess(false);
+    setSubmitting(true);
+    try {
+      await apiFetch('/transfers', {
+        method: 'POST',
+        body: JSON.stringify({ recipientBid: recipientBid.trim(), amount, note: note || undefined }),
+      });
+      setSuccess(true);
+      setRecipientBid('');
+      setAmount('');
+      setNote('');
+      setRecipient(undefined);
+      onSubmitted();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="bg-surface border border-white/10 rounded-xl p-5">
+      <h2 className="font-display font-medium text-paper mb-3">Send USDT to another trader</h2>
+      <p className="text-xs text-muted mb-3">
+        Instant, no fee — send directly to another Birrly trader by their trader ID (shown on their profile,
+        e.g. BID7K3F9A). No ad or trade needed.
+      </p>
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <input
+          placeholder="Recipient trader ID (e.g. BID7K3F9A)"
+          value={recipientBid}
+          onChange={(e) => setRecipientBid(e.target.value)}
+          required
+          className="w-full bg-surfaceRaised rounded-md px-3 py-2 text-paper outline-none focus:ring-2 focus:ring-teal"
+        />
+        {recipient === null && recipientBid.trim() && (
+          <p className="text-xs text-red-400">No trader found with that ID.</p>
+        )}
+        {recipient && (
+          <p className="text-xs text-teal">
+            Sending to {recipient.fullName || 'Trader'}
+            {recipient.isMerchant ? ' (Merchant)' : ''}
+          </p>
+        )}
+        <input
+          placeholder="Amount (USDT)"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          required
+          className="w-full bg-surfaceRaised rounded-md px-3 py-2 text-paper outline-none focus:ring-2 focus:ring-teal"
+        />
+        <input
+          placeholder="Note (optional)"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          maxLength={200}
+          className="w-full bg-surfaceRaised rounded-md px-3 py-2 text-paper outline-none focus:ring-2 focus:ring-teal"
+        />
+        {error && <p className="text-red-400 text-sm">{error}</p>}
+        {success && <p className="text-teal text-sm">Sent!</p>}
+        <button
+          type="submit"
+          disabled={submitting || !recipient}
+          className="w-full rounded-md bg-gradient-to-br from-gold to-teal py-2 text-onaccent font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+        >
+          {submitting ? 'Sending…' : 'Send'}
         </button>
       </form>
     </div>
