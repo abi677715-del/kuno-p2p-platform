@@ -3,6 +3,23 @@
 import { useEffect, useState } from 'react';
 import { apiFetch, API_URL } from '@/lib/api';
 
+// KYC document/selfie files require the admin's auth token to view — they're
+// no longer public static files — so we fetch them as an authenticated blob
+// and open that instead of linking straight to the API URL.
+async function viewKycFile(kycId: string, type: 'document' | 'selfie') {
+  const token = localStorage.getItem('accessToken');
+  const res = await fetch(`${API_URL}/kyc/file/${kycId}/${type}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) {
+    window.alert('Could not load that file.');
+    return;
+  }
+  const blob = await res.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  window.open(objectUrl, '_blank');
+}
+
 export default function AdminKycPage() {
   const [pending, setPending] = useState<any[]>([]);
   const [error, setError] = useState('');
@@ -141,12 +158,20 @@ export default function AdminKycPage() {
                   </div>
                 </div>
                 <div className="flex gap-3">
-                  <a href={`${API_URL}${record.documentUrl}`} target="_blank" className="text-xs text-teal underline">
+                  <button
+                    type="button"
+                    onClick={() => viewKycFile(record.id, 'document')}
+                    className="text-xs text-teal underline"
+                  >
                     View ID document
-                  </a>
-                  <a href={`${API_URL}${record.selfieUrl}`} target="_blank" className="text-xs text-teal underline">
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => viewKycFile(record.id, 'selfie')}
+                    className="text-xs text-teal underline"
+                  >
                     View selfie
-                  </a>
+                  </button>
                 </div>
               </div>
             </div>
