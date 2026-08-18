@@ -472,3 +472,32 @@ model AdminAuditLog {
 
   @@map("admin_audit_logs")
 }
+
+enum BannerAdStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum BannerPlacement {
+  MARKETPLACE
+  HOMEPAGE
+}
+
+/// Sponsored video ad slots submitted by outside advertisers, reviewed by an admin before going live.
+model BannerAd {
+  id              String            @id @default(uuid())
+  advertiserName  String
+  advertiserEmail String
+  title           String
+  linkUrl         String
+  videoUrl        String
+  placements      BannerPlacement[]
+  status          BannerAdStatus    @default(PENDING)
+  rejectionReason String?           @db.Text
+  reviewedBy      String?
+  reviewedAt      DateTime?
+  createdAt       DateTime          @default(now())
+
+  @@map("banner_ads")
+}
