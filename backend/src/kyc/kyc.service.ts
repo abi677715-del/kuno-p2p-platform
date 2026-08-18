@@ -71,7 +71,24 @@ export class KycService {
     return updated;
   }
 
-  private async getById(id: string) {
+  /** Approves several submissions in one go — used by the bulk-select UI on the admin queue. */
+  async bulkApprove(adminId: string, kycIds: string[]) {
+    const results = await Promise.allSettled(kycIds.map((id) => this.approve(adminId, id)));
+    return this.summarizeBulk(kycIds, results);
+  }
+
+  async bulkReject(adminId: string, kycIds: string[], dto: RejectKycDto) {
+    const results = await Promise.allSettled(kycIds.map((id) => this.reject(adminId, id, dto)));
+    return this.summarizeBulk(kycIds, results);
+  }
+
+  private summarizeBulk(ids: string[], results: PromiseSettledResult<unknown>[]) {
+    const succeeded = results.filter((r) => r.status === 'fulfilled').length;
+    const failed = ids.length - succeeded;
+    return { succeeded, failed };
+  }
+
+  async getById(id: string) {
     const record = await this.prisma.kycRecord.findUnique({ where: { id } });
     if (!record) throw new NotFoundException('KYC submission not found');
     return record;
