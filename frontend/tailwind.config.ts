@@ -13,7 +13,7 @@ const config: Config = {
         white: 'rgb(var(--color-hairline) / <alpha-value>)',
         gold: '#E8A33D',
         teal: '#0B8457',
-        onaccent: '#12161F',
+        onaccent: '#FFFFFF',
       },
       fontFamily: {
         display: ['var(--font-display)'],
