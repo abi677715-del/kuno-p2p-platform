@@ -7,7 +7,7 @@ import AnimatedBackground from '@/components/AnimatedBackground';
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
 const links = [
-  { href: '/marketplace', label: 'P2P', description: 'Browse and post buy/sell offers' },
+  { href: '/marketplace', label: 'Marketplace', description: 'Browse and post buy/sell offers' },
   { href: '/trades', label: 'Trades', description: 'Track your active and past trades' },
   { href: '/wallet', label: 'Wallet', description: 'Deposit, withdraw, and view balances' },
   { href: '/notifications', label: 'Notifications', description: 'Updates on your trades and account' },
@@ -28,6 +28,7 @@ const adminLinks = [
   { href: '/admin/support', label: 'Support tickets', description: 'Respond to user help requests' },
   { href: '/admin/audit-log', label: 'Audit log', description: 'Record of sensitive admin actions' },
   { href: '/admin/users', label: 'Users', description: 'List of all registered users and their trader ID' },
+  { href: '/admin/banner-ads', label: 'Sponsored video ads', description: 'Review video ads submitted by advertisers' },
 ];
 
 function getRole(): string | null {
@@ -216,29 +217,16 @@ export default function DashboardPage() {
         {avatarError && <p className="text-red-400 text-sm mb-4">{avatarError}</p>}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {links.map((link) =>
-            link.label === 'P2P' ? (
-              <a
-                key={link.href}
-                href={link.href}
-                className="block bg-gradient-to-br from-gold/20 to-teal/20 border border-transparent ring-1 ring-teal/50 rounded-xl p-5 hover:ring-teal transition-all"
-              >
-                <p className="font-display font-bold bg-gradient-to-br from-gold to-teal bg-clip-text text-transparent">
-                  {link.label}
-                </p>
-                <p className="text-sm text-muted mt-1">{link.description}</p>
-              </a>
-            ) : (
-              <a
-                key={link.href}
-                href={link.href}
-                className="block bg-surface border border-white/10 rounded-xl p-5 hover:border-white/25 transition-colors"
-              >
-                <p className="font-display font-medium text-paper">{link.label}</p>
-                <p className="text-sm text-muted mt-1">{link.description}</p>
-              </a>
-            ),
-          )}
+          {links.map((link) => (
+            <a
+              key={link.href}
+              href={link.href}
+              className="block bg-surface border border-white/10 rounded-xl p-5 hover:border-white/25 transition-colors"
+            >
+              <p className="font-display font-medium text-paper">{link.label}</p>
+              <p className="text-sm text-muted mt-1">{link.description}</p>
+            </a>
+          ))}
         </div>
 
         {isAdmin && (
