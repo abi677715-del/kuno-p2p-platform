@@ -5,6 +5,7 @@ import { apiFetch } from '@/lib/api';
 import { PAYMENT_METHODS, colorFor, initialsFor } from '@/lib/paymentMethods';
 import { displayName } from '@/lib/displayName';
 import { formatAmount } from '@/lib/format';
+import BannerAdRow from '@/components/BannerAdRow';
 
 // The logo's diagonal gold-to-teal gradient, reused as the "active" look for
 // every toggle/tab control so selection state reads as on-brand, not generic.
@@ -157,6 +158,10 @@ export default function MarketplacePage() {
             </button>
           </div>
         </div>
+
+        <BannerAdRow placement="MARKETPLACE" />
+
+        <QuickTradeCard />
 
         <div className="flex gap-2 mb-6 bg-surface border border-white/10 rounded-lg p-1 w-fit">
           <button
@@ -313,6 +318,72 @@ export default function MarketplacePage() {
         </div>
       </div>
     </main>
+  );
+}
+
+function QuickTradeCard() {
+  const [side, setSide] = useState<'BUY' | 'SELL'>('BUY');
+  const [amountUsdt, setAmountUsdt] = useState('50');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  async function go() {
+    setError('');
+    setLoading(true);
+    try {
+      const trade = await apiFetch('/trades/quick', {
+        method: 'POST',
+        body: JSON.stringify({ side, amountUsdt }),
+      });
+      window.location.href = `/trades/${trade.id}`;
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="bg-surface border border-white/10 rounded-xl p-5 mb-6">
+      <h2 className="font-display font-medium text-paper mb-1">Express — instant match</h2>
+      <p className="text-xs text-muted mb-3">Skip browsing — we'll match you with the best price available right now.</p>
+      <div className="flex gap-3 flex-wrap items-center">
+        <div className="flex gap-2 bg-surfaceRaised rounded-lg p-1">
+          <button
+            type="button"
+            onClick={() => setSide('BUY')}
+            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+              side === 'BUY' ? TOGGLE_ACTIVE : 'text-muted hover:text-paper'
+            }`}
+          >
+            Buy
+          </button>
+          <button
+            type="button"
+            onClick={() => setSide('SELL')}
+            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+              side === 'SELL' ? TOGGLE_ACTIVE : 'text-muted hover:text-paper'
+            }`}
+          >
+            Sell
+          </button>
+        </div>
+        <input
+          value={amountUsdt}
+          onChange={(e) => setAmountUsdt(e.target.value)}
+          placeholder="Amount USDT"
+          className="w-32 bg-surfaceRaised rounded-md px-3 py-2 text-sm text-paper outline-none focus:ring-2 focus:ring-teal"
+        />
+        <button
+          onClick={go}
+          disabled={loading}
+          className="rounded-md bg-gradient-to-br from-gold to-teal px-4 py-2 text-onaccent text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+        >
+          {loading ? 'Matching…' : side === 'BUY' ? 'Buy now' : 'Sell now'}
+        </button>
+      </div>
+      {error && <p className="text-red-400 text-xs mt-2">{error}</p>}
+    </div>
   );
 }
 
