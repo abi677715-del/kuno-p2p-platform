@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { PAYMENT_METHODS, colorFor, initialsFor } from '@/lib/paymentMethods';
 import AnimatedBackground from '@/components/AnimatedBackground';
+import BannerAdRow from '@/components/BannerAdRow';
 
 const FALLBACK_RATE = 123.4; // used until the live rate loads, or if it fails to load
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
@@ -36,6 +37,9 @@ export default function LandingPage() {
       <div className="relative z-10">
         <Nav />
         <Hero usdt={usdt} setUsdt={setUsdt} etb={etb} rate={rate} isLive={rateSampleSize > 0} />
+        <div className="px-6 md:px-12 max-w-6xl mx-auto">
+          <BannerAdRow placement="HOMEPAGE" />
+        </div>
         <HowItWorks />
         <Trust />
         <Cta />
