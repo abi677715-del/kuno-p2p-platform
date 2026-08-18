@@ -16,7 +16,8 @@ import { RelationsModule } from './relations/relations.module';
 import { AdminModule } from './admin/admin.module';
 import { MerchantModule } from './merchant/merchant.module';
 import { AppealsModule } from './appeals/appeals.module';
-import { TransfersModule } from './transfers/transfers.module';// force
+import { TransfersModule } from './transfers/transfers.module';
+import { BannerAdsModule } from './banner-ads/banner-ads.module';
 import { AppController } from './app.controller';
 
 @Module({
@@ -41,6 +42,7 @@ import { AppController } from './app.controller';
     MerchantModule,
     AppealsModule,
     TransfersModule,
+    BannerAdsModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
