@@ -10,6 +10,7 @@ import { SendMessageDto } from './dto/send-message.dto';
 import { ConfirmPaymentDto } from './dto/confirm-payment.dto';
 import { ResolveDisputeDto } from './dto/resolve-dispute.dto';
 import { RateTradeDto } from './dto/rate-trade.dto';
+import { QuickTradeDto } from './dto/quick-trade.dto';
 
 @Controller('trades')
 @UseGuards(JwtAuthGuard)
@@ -19,6 +20,11 @@ export class TradesController {
   @Post()
   create(@Req() req: any, @Body() dto: CreateTradeDto) {
     return this.tradesService.createTrade(req.user.userId, dto);
+  }
+
+  @Post('quick')
+  quickTrade(@Req() req: any, @Body() dto: QuickTradeDto) {
+    return this.tradesService.quickTrade(req.user.userId, dto);
   }
 
   @Get()
