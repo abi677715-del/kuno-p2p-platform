@@ -4,6 +4,7 @@ import { AdSide, AdStatus, AdPricingMode, Currency, TradeStatus } from '@prisma/
 import { CreateAdDto } from './dto/create-ad.dto';
 import { KycService } from '../kyc/kyc.service';
 import { UsersService } from '../users/users.service';
+import { RelationsService } from '../relations/relations.service';
 import { tierFor } from '../common/trader-tier';
 
 /** Merchant stats look at the trailing window only — a badge earned a year ago and never touched since is a stale, misleading trust signal. */
@@ -15,6 +16,7 @@ export class AdsService {
     private prisma: PrismaService,
     private kycService: KycService,
     private usersService: UsersService,
+    private relationsService: RelationsService,
   ) {}
 
   /**
@@ -250,7 +252,16 @@ export class AdsService {
       const pb = parseFloat(b.effectivePriceEtb);
       return wantSide === AdSide.BUY ? pa - pb : pb - pa;
     });
-    return eligible[0];
+
+    // Skip ads from traders blocked in either direction — createTrade would
+    // reject the match anyway, so trying the next-best offer here means quick
+    // trade still succeeds instead of failing outright on a blocked top match.
+    for (const ad of eligible) {
+      if (!(await this.relationsService.isBlocked(excludeUserId, ad.userId))) {
+        return ad;
+      }
+    }
+    return null;
   }
 
   async findActive(side?: AdSide) {
