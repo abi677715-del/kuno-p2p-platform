@@ -2,8 +2,8 @@ import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/com
 import { randomUUID } from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../common/prisma.service';
-import { Currency, Role, User } from '@prisma/client';
-import { parseBid } from '../common/bid';
+import { Currency, Role, TxStatus, TxType, User } from '@prisma/client';
+import { formatBid, parseBid } from '../common/bid';
 
 const SALT_ROUNDS = 12;
 
@@ -117,6 +117,40 @@ export class UsersService {
 
       return user;
     });
+  }
+
+  /**
+   * Who a user has referred, and how much they've earned in referral bonuses
+   * so far — the referral link itself is just their own trader ID, generated
+   * on the frontend, so there's nothing to create here.
+   */
+  async getReferralStats(userId: string) {
+    const [referrals, earnings] = await Promise.all([
+      this.prisma.user.findMany({
+        where: { referredById: userId },
+        select: { fullName: true, email: true, bidNumber: true, createdAt: true },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.walletTransaction.aggregate({
+        where: {
+          type: TxType.REFERRAL,
+          status: TxStatus.CONFIRMED,
+          wallet: { userId, currency: Currency.USDT },
+        },
+        _sum: { amount: true },
+      }),
+    ]);
+
+    return {
+      referredCount: referrals.length,
+      totalEarnedUsdt: (earnings._sum.amount ?? 0).toString(),
+      referrals: referrals.map((r) => ({
+        fullName: r.fullName,
+        email: r.email,
+        bid: formatBid(r.bidNumber),
+        createdAt: r.createdAt,
+      })),
+    };
   }
 
   async verifyEmail(token: string) {

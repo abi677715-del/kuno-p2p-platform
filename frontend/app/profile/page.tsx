@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/api';
 import PushToggle from '@/components/PushToggle';
+import { formatAmount } from '@/lib/format';
 
 type Profile = {
   email: string;
@@ -15,6 +16,12 @@ type Profile = {
   isMerchant?: boolean;
 };
 
+type ReferralStats = {
+  referredCount: number;
+  totalEarnedUsdt: string;
+  referrals: { fullName?: string; email: string; bid: string; createdAt: string }[];
+};
+
 export default function ProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [fullName, setFullName] = useState('');
@@ -22,6 +29,7 @@ export default function ProfilePage() {
   const [profileError, setProfileError] = useState('');
   const [profileSaved, setProfileSaved] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [referralStats, setReferralStats] = useState<ReferralStats | null>(null);
 
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -35,6 +43,7 @@ export default function ProfilePage() {
       setFullName(data.fullName ?? '');
       setPhone(data.phone ?? '');
     });
+    apiFetch('/users/me/referrals').then(setReferralStats).catch(() => {});
   }, []);
 
   async function saveProfile(e: React.FormEvent) {
@@ -155,6 +164,37 @@ export default function ProfilePage() {
                 {linkCopied ? 'Copied!' : 'Copy'}
               </button>
             </div>
+
+            {referralStats && (
+              <>
+                <div className="grid grid-cols-2 gap-3 pt-1">
+                  <div className="bg-surfaceRaised rounded-md p-3 text-center">
+                    <p className="text-lg font-mono text-paper">{referralStats.referredCount}</p>
+                    <p className="text-[11px] text-muted mt-0.5">Friends referred</p>
+                  </div>
+                  <div className="bg-surfaceRaised rounded-md p-3 text-center">
+                    <p className="text-lg font-mono text-paper">{formatAmount(referralStats.totalEarnedUsdt, 4)}</p>
+                    <p className="text-[11px] text-muted mt-0.5">USDT earned</p>
+                  </div>
+                </div>
+
+                {referralStats.referrals.length > 0 && (
+                  <div className="space-y-1.5 pt-1">
+                    {referralStats.referrals.map((r) => (
+                      <div key={r.bid} className="flex items-center justify-between bg-surfaceRaised rounded-md px-3 py-2">
+                        <div className="min-w-0">
+                          <p className="text-sm text-paper truncate">{r.fullName || r.email}</p>
+                          <p className="text-[11px] text-gold font-mono">{r.bid}</p>
+                        </div>
+                        <p className="text-[11px] text-muted shrink-0">
+                          Joined {new Date(r.createdAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
           </div>
         )}
 
