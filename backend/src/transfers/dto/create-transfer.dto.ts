@@ -1,4 +1,4 @@
-import { IsNumberString, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsNumberString, IsOptional, IsString, Matches, MaxLength } from 'class-validator';
 
 export class CreateTransferDto {
   @IsString()
@@ -11,4 +11,8 @@ export class CreateTransferDto {
   @IsString()
   @MaxLength(200)
   note?: string;
+
+  @IsString()
+  @Matches(/^\d{6}$/, { message: 'Enter your 6-digit 2FA code' })
+  twoFaCode: string;
 }
