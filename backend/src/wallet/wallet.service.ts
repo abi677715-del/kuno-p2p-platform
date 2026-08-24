@@ -7,6 +7,7 @@ import { isPlausibleAddress } from './address-format';
 import { generateTxCode } from './tx-code';
 import { gasFeeUsdt } from './withdrawal-fees';
 import { KycService } from '../kyc/kyc.service';
+import { AuthService } from '../auth/auth.service';
 
 const PLATFORM_ACCOUNT_EMAIL = 'platform@birrly.internal';
 
@@ -15,6 +16,7 @@ export class WalletService {
   constructor(
     private prisma: PrismaService,
     private kycService: KycService,
+    private authService: AuthService,
   ) {}
 
   async getBalances(userId: string) {
@@ -97,8 +99,16 @@ export class WalletService {
    * to locked immediately so they can't be spent elsewhere while the request
    * is pending; an admin manually sends the USDT out from the platform wallet.
    */
-  async requestWithdrawal(userId: string, currency: Currency, amount: string, toAddress: string, network: Network) {
+  async requestWithdrawal(
+    userId: string,
+    currency: Currency,
+    amount: string,
+    toAddress: string,
+    network: Network,
+    twoFaCode: string,
+  ) {
     await this.kycService.assertApproved(userId);
+    await this.authService.assertTwoFaForTransaction(userId, twoFaCode);
 
     if (!isPlausibleAddress(network, toAddress)) {
       throw new BadRequestException("That destination address doesn't look valid for the selected network");
