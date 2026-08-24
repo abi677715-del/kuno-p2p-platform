@@ -167,6 +167,27 @@ export class AuthService {
     return { twoFaEnabled: false };
   }
 
+  /**
+   * Gate for money-moving actions (withdrawals, internal transfers): 2FA
+   * must be enabled on the account, and the caller must supply a valid
+   * TOTP code for this specific request. Throws otherwise.
+   */
+  async assertTwoFaForTransaction(userId: string, code?: string) {
+    const user = await this.usersService.findById(userId);
+    if (!user?.twoFaEnabled || !user.twoFaSecret) {
+      throw new BadRequestException(
+        'Enable two-factor authentication in Settings before withdrawing or sending funds',
+      );
+    }
+    if (!code) {
+      throw new BadRequestException('Enter your 2FA code to continue');
+    }
+    const isValid = authenticator.verify({ token: code, secret: user.twoFaSecret });
+    if (!isValid) {
+      throw new UnauthorizedException('Invalid authentication code');
+    }
+  }
+
   private async issueTokens(userId: string, email: string, role: string) {
     const payload = { sub: userId, email, role };
     const accessToken = await this.jwtService.signAsync(payload, {
