@@ -1,4 +1,4 @@
-import { IsEnum, IsNumberString, IsString, MinLength } from 'class-validator';
+import { IsEnum, IsNumberString, IsString, Matches, MinLength } from 'class-validator';
 import { Currency, Network } from '@prisma/client';
 
 export class RequestWithdrawalDto {
@@ -14,4 +14,8 @@ export class RequestWithdrawalDto {
 
   @IsEnum(Network)
   network: Network;
+
+  @IsString()
+  @Matches(/^\d{6}$/, { message: 'Enter your 6-digit 2FA code' })
+  twoFaCode: string;
 }
