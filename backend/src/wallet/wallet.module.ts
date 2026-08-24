@@ -4,9 +4,10 @@ import { WalletController } from './wallet.controller';
 import { DepositWatcherService } from './deposit-watcher.service';
 import { WithdrawalSenderService } from './withdrawal-sender.service';
 import { KycModule } from '../kyc/kyc.module';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
-  imports: [KycModule],
+  imports: [KycModule, AuthModule],
   controllers: [WalletController],
   providers: [WalletService, DepositWatcherService, WithdrawalSenderService],
   exports: [WalletService],
