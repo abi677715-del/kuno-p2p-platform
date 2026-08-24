@@ -38,7 +38,14 @@ export class WalletController {
 
   @Post('withdraw')
   requestWithdrawal(@Req() req: any, @Body() dto: RequestWithdrawalDto) {
-    return this.walletService.requestWithdrawal(req.user.userId, dto.currency, dto.amount, dto.toAddress, dto.network);
+    return this.walletService.requestWithdrawal(
+      req.user.userId,
+      dto.currency,
+      dto.amount,
+      dto.toAddress,
+      dto.network,
+      dto.twoFaCode,
+    );
   }
 
   @Get('transactions')
