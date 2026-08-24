@@ -4,6 +4,7 @@ import { Currency, TxStatus, TxType } from '@prisma/client';
 import { parseBid, formatBid } from '../common/bid';
 import { generateTxCode } from '../wallet/tx-code';
 import { KycService } from '../kyc/kyc.service';
+import { AuthService } from '../auth/auth.service';
 import { CreateTransferDto } from './dto/create-transfer.dto';
 
 @Injectable()
@@ -11,6 +12,7 @@ export class TransfersService {
   constructor(
     private prisma: PrismaService,
     private kycService: KycService,
+    private authService: AuthService,
   ) {}
 
   /** Looks up a trader by their public BID code, for the frontend to confirm "sending to <name>" before submitting. */
@@ -31,6 +33,7 @@ export class TransfersService {
    */
   async send(fromUserId: string, dto: CreateTransferDto) {
     await this.kycService.assertApproved(fromUserId);
+    await this.authService.assertTwoFaForTransaction(fromUserId, dto.twoFaCode);
 
     if (!(parseFloat(dto.amount) > 0)) {
       throw new BadRequestException('Amount must be greater than 0');
