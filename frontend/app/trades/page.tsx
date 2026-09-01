@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/api';
 import { displayName } from '@/lib/displayName';
 import { formatAmount } from '@/lib/format';
+import { toCsv, downloadCsv } from '@/lib/csv';
 
 const STATUS_COLOR: Record<string, string> = {
   PENDING: 'text-muted',
@@ -49,6 +50,34 @@ export default function TradesListPage() {
     setCollapsed((prev) => ({ ...prev, [status]: !prev[status] }));
   }
 
+  function exportCsv() {
+    const headers = [
+      'Trade ID',
+      'Code',
+      'Status',
+      'Buyer',
+      'Seller',
+      'Amount USDT',
+      'Amount ETB',
+      'Created At',
+      'Paid At',
+      'Completed At',
+    ];
+    const rows = trades.map((t) => [
+      t.id,
+      t.code ?? '',
+      t.status,
+      displayName(t.buyer),
+      displayName(t.seller),
+      t.amountUsdt,
+      t.amountEtb,
+      t.createdAt ? new Date(t.createdAt).toISOString() : '',
+      t.paidAt ? new Date(t.paidAt).toISOString() : '',
+      t.completedAt ? new Date(t.completedAt).toISOString() : '',
+    ]);
+    downloadCsv(`birrly-trades-${new Date().toISOString().slice(0, 10)}.csv`, toCsv(headers, rows));
+  }
+
   async function quickCancel(e: React.MouseEvent, tradeId: string) {
     e.preventDefault();
     e.stopPropagation();
@@ -67,7 +96,17 @@ export default function TradesListPage() {
   return (
     <main className="min-h-screen bg-ink px-6 py-10 md:px-12">
       <div className="max-w-2xl mx-auto">
-        <h1 className="font-display font-bold text-2xl text-paper mb-6">Your trades</h1>
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="font-display font-bold text-2xl text-paper">Your trades</h1>
+          {trades.length > 0 && (
+            <button
+              onClick={exportCsv}
+              className="text-xs text-muted border border-white/10 rounded-md px-3 py-1.5 hover:text-paper hover:border-white/25 transition-colors"
+            >
+              Export CSV
+            </button>
+          )}
+        </div>
         {error && <p className="text-red-400 text-sm mb-4">{error}</p>}
 
         <div className="space-y-8">

@@ -78,4 +78,9 @@ export class UsersController {
     const user = await this.usersService.setAvatar(req.user.userId, dto.avatar);
     return { avatar: user.avatar };
   }
+
+  @Get('me/referrals')
+  myReferrals(@Req() req: any) {
+    return this.usersService.getReferralStats(req.user.userId);
+  }
 }

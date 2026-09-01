@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import AutoLogout from '../components/AutoLogout';
+import { LanguageProvider } from '../lib/i18n/context';
 import './globals.css';
 
 const SITE_URL = 'https://www.birrly.net';
@@ -58,15 +59,21 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="theme-color" content="#0F1420" />
         <script
           dangerouslySetInnerHTML={{
-            __html: `try { if (localStorage.getItem('theme') === 'light') document.documentElement.classList.add('light'); } catch (e) {}`,
+            __html: `try {
+              if (localStorage.getItem('theme') === 'light') document.documentElement.classList.add('light');
+              var lang = localStorage.getItem('language');
+              if (lang === 'am' || lang === 'en') document.documentElement.lang = lang;
+            } catch (e) {}`,
           }}
         />
       </head>
       <body className="font-body">
+        <LanguageProvider>
           <Header />
-        <AutoLogout />
-        {children}
-        <Footer />
+          <AutoLogout />
+          {children}
+          <Footer />
+        </LanguageProvider>
       </body>
     </html>
   );

@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { PAYMENT_METHODS, colorFor, initialsFor } from '@/lib/paymentMethods';
 import AnimatedBackground from '@/components/AnimatedBackground';
 import BannerAdRow from '@/components/BannerAdRow';
+import LanguageToggle from '@/components/LanguageToggle';
+import { useLanguage, format } from '@/lib/i18n/context';
 
 const FALLBACK_RATE = 123.4; // used until the live rate loads, or if it fails to load
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
@@ -50,25 +52,27 @@ export default function LandingPage() {
 }
 
 function Nav() {
+  const { t } = useLanguage();
   return (
     <header className="sticky top-0 z-50 backdrop-blur-md bg-ink/70 border-b border-white/5">
       <div className="flex items-center justify-between px-6 py-4 md:px-12 max-w-6xl mx-auto">
         <a href="/" className="inline-flex items-center">
           <img src="/birrly-logo.png" alt="Birrly" className="h-8 w-auto" />
         </a>
-        <div className="flex items-center gap-6 text-sm text-muted">
+        <div className="flex items-center gap-4 sm:gap-6 text-sm text-muted">
           <a href="#how" className="hidden sm:inline hover:text-paper transition-colors">
-            How it works
+            {t.nav.howItWorks}
           </a>
           <a href="/login" className="hover:text-paper transition-colors">
-            Log in
+            {t.nav.login}
           </a>
           <a
             href="/signup"
             className="rounded-md bg-gradient-to-br from-gold to-teal px-4 py-2 text-onaccent font-medium hover:opacity-90 hover:shadow-lg hover:shadow-teal/20 transition-all"
           >
-            Get started
+            {t.nav.getStarted}
           </a>
+          <LanguageToggle />
         </div>
       </div>
     </header>
@@ -88,6 +92,7 @@ function Hero({
   rate: number;
   isLive: boolean;
 }) {
+  const { t } = useLanguage();
   return (
     <section className="relative px-6 md:px-12 pt-14 pb-24 max-w-6xl mx-auto">
       <div
@@ -104,33 +109,31 @@ function Hero({
         <div className="animate-fade-in-up">
           <p className="inline-flex items-center gap-2 font-mono text-xs text-teal tracking-widest uppercase mb-5 border border-teal/30 bg-teal/10 rounded-full px-3 py-1.5">
             <span className="inline-block h-1.5 w-1.5 rounded-full bg-teal animate-pulse" />
-            Peer-to-peer · Escrow-protected
+            {t.hero.badge}
           </p>
           <h1 className="font-display font-bold text-4xl md:text-5xl leading-tight text-paper mb-6">
-            Trade USDT for Birr, directly with people you can{' '}
-            <span className="bg-gradient-to-br from-gold to-teal bg-clip-text text-transparent">trust</span>.
+            {t.hero.titleBefore}
+            <span className="bg-gradient-to-br from-gold to-teal bg-clip-text text-transparent">{t.hero.titleHighlight}</span>
+            {t.hero.titleAfter}
           </h1>
-          <p className="text-muted text-lg mb-8 max-w-md">
-            Post an offer or take one. Funds sit in escrow until both sides confirm, so a trade
-            only completes when the money has actually moved.
-          </p>
+          <p className="text-muted text-lg mb-8 max-w-md">{t.hero.subtitle}</p>
           <div className="flex flex-wrap gap-4">
             <a
               href="/signup"
               className="rounded-md bg-gradient-to-br from-gold to-teal px-6 py-3 text-onaccent font-medium hover:opacity-90 hover:shadow-lg hover:shadow-teal/20 hover:-translate-y-0.5 transition-all"
             >
-              Create free account
+              {t.hero.createAccount}
             </a>
             <a
               href="#how"
               className="rounded-md border border-white/15 px-6 py-3 text-paper font-medium hover:border-white/30 hover:-translate-y-0.5 transition-all"
             >
-              See how it works
+              {t.hero.seeHow}
             </a>
           </div>
 
           <div className="mt-10">
-            <p className="text-xs text-muted uppercase tracking-wide mb-3">Pay and get paid your way</p>
+            <p className="text-xs text-muted uppercase tracking-wide mb-3">{t.hero.payYourWay}</p>
             <div className="flex flex-wrap gap-2">
               {PAYMENT_METHODS.slice(0, 6).map((m) => (
                 <span
@@ -157,11 +160,11 @@ function Hero({
         >
           <p className="text-sm text-muted mb-4 flex items-center gap-2">
             {isLive && <span className="inline-block h-1.5 w-1.5 rounded-full bg-teal animate-pulse" />}
-            {isLive ? 'Live rate — median of active offers' : 'Indicative rate — actual price set by each trader\'s offer'}
+            {isLive ? t.hero.liveRate : t.hero.indicativeRate}
           </p>
           <div className="flex items-center gap-3 mb-2">
             <div className="flex-1 bg-surfaceRaised rounded-lg px-4 py-3">
-              <label className="text-xs text-muted block mb-1">You send</label>
+              <label className="text-xs text-muted block mb-1">{t.hero.youSend}</label>
               <div className="flex items-center gap-2">
                 <input
                   type="number"
@@ -180,14 +183,14 @@ function Hero({
           </div>
           <div className="flex items-center gap-3 mt-2">
             <div className="flex-1 bg-surfaceRaised rounded-lg px-4 py-3">
-              <label className="text-xs text-muted block mb-1">You receive</label>
+              <label className="text-xs text-muted block mb-1">{t.hero.youReceive}</label>
               <div className="flex items-center gap-2">
                 <span className="font-mono text-2xl text-paper">{etb}</span>
                 <span className="text-gold font-medium">ETB</span>
               </div>
             </div>
           </div>
-          <p className="text-xs text-muted mt-4 font-mono">1 USDT ≈ {rate} ETB</p>
+          <p className="text-xs text-muted mt-4 font-mono">{format(t.hero.approxRate, { rate })}</p>
         </div>
       </div>
     </section>
@@ -203,33 +206,18 @@ function StepIcon({ n }: { n: string }) {
 }
 
 function HowItWorks() {
+  const { t } = useLanguage();
   const steps = [
-    {
-      n: '01',
-      title: 'Post or accept an offer',
-      body: 'Browse offers from verified traders, or list your own rate and payment method.',
-    },
-    {
-      n: '02',
-      title: 'Funds move into escrow',
-      body: 'The seller’s USDT is locked the moment a trade starts — it can’t be withdrawn mid-trade.',
-    },
-    {
-      n: '03',
-      title: 'Pay and confirm',
-      body: 'The buyer sends Birr by bank or mobile money, then marks the trade as paid in the trade room.',
-    },
-    {
-      n: '04',
-      title: 'Escrow releases automatically',
-      body: 'Once the seller confirms payment, escrow releases USDT to the buyer’s wallet.',
-    },
+    { n: '01', title: t.howItWorks.step1Title, body: t.howItWorks.step1Body },
+    { n: '02', title: t.howItWorks.step2Title, body: t.howItWorks.step2Body },
+    { n: '03', title: t.howItWorks.step3Title, body: t.howItWorks.step3Body },
+    { n: '04', title: t.howItWorks.step4Title, body: t.howItWorks.step4Body },
   ];
 
   return (
     <Reveal id="how" className="px-6 md:px-12 py-20 max-w-6xl mx-auto">
-      <h2 className="font-display font-bold text-2xl text-paper mb-2">How a trade works</h2>
-      <p className="text-muted mb-10 max-w-lg">Four steps, and escrow removes the point where trust used to be required.</p>
+      <h2 className="font-display font-bold text-2xl text-paper mb-2">{t.howItWorks.heading}</h2>
+      <p className="text-muted mb-10 max-w-lg">{t.howItWorks.subheading}</p>
       <div className="grid md:grid-cols-4 gap-5">
         {steps.map((s) => (
           <div
@@ -268,21 +256,22 @@ const TRUST_ICONS: Record<string, JSX.Element> = {
 };
 
 function Trust() {
+  const { t } = useLanguage();
   const points = [
-    { label: 'ID verification', body: 'Every trader completes KYC before their first trade.' },
-    { label: 'Escrow-held funds', body: 'USDT is locked in escrow for the full duration of the trade.' },
-    { label: 'Dispute resolution', body: 'A support team reviews any disagreement using the trade chat log.' },
+    { label: 'ID verification', title: t.trust.idTitle, body: t.trust.idBody },
+    { label: 'Escrow-held funds', title: t.trust.escrowTitle, body: t.trust.escrowBody },
+    { label: 'Dispute resolution', title: t.trust.disputeTitle, body: t.trust.disputeBody },
   ];
   return (
     <Reveal className="px-6 md:px-12 py-20 max-w-6xl mx-auto border-t border-white/10">
-      <h2 className="font-display font-bold text-2xl text-paper mb-10">Built so trust isn't the risky part</h2>
+      <h2 className="font-display font-bold text-2xl text-paper mb-10">{t.trust.heading}</h2>
       <div className="grid md:grid-cols-3 gap-8">
         {points.map((p) => (
           <div key={p.label}>
             <span className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-teal/10 text-teal mb-3">
               {TRUST_ICONS[p.label]}
             </span>
-            <h3 className="font-display font-medium text-paper mb-2">{p.label}</h3>
+            <h3 className="font-display font-medium text-paper mb-2">{p.title}</h3>
             <p className="text-sm text-muted leading-relaxed">{p.body}</p>
           </div>
         ))}
@@ -292,6 +281,7 @@ function Trust() {
 }
 
 function Cta() {
+  const { t } = useLanguage();
   return (
     <Reveal className="relative px-6 md:px-12 py-20 max-w-6xl mx-auto text-center overflow-hidden">
       <div
@@ -299,13 +289,13 @@ function Cta() {
         aria-hidden
       />
       <div className="relative">
-        <h2 className="font-display font-bold text-3xl text-paper mb-4">Start your first trade</h2>
-        <p className="text-muted mb-8">Verification takes a few minutes. Your first trade can happen today.</p>
+        <h2 className="font-display font-bold text-3xl text-paper mb-4">{t.cta.heading}</h2>
+        <p className="text-muted mb-8">{t.cta.body}</p>
         <a
           href="/signup"
           className="inline-block rounded-md bg-gradient-to-br from-gold to-teal px-8 py-3 text-onaccent font-medium hover:opacity-90 hover:shadow-lg hover:shadow-teal/20 hover:-translate-y-0.5 transition-all"
         >
-          Create free account
+          {t.cta.createAccount}
         </a>
       </div>
     </Reveal>
@@ -313,6 +303,7 @@ function Cta() {
 }
 
 function Footer() {
+  const { t } = useLanguage();
   return (
     <footer className="px-6 md:px-12 py-10 max-w-6xl mx-auto border-t border-white/10">
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -321,16 +312,16 @@ function Footer() {
         </a>
         <div className="flex items-center gap-6 text-sm text-muted">
           <a href="#how" className="hover:text-paper transition-colors">
-            How it works
+            {t.footerMini.howItWorks}
           </a>
           <a href="/login" className="hover:text-paper transition-colors">
-            Log in
+            {t.footerMini.login}
           </a>
           <a href="/signup" className="hover:text-paper transition-colors">
-            Sign up
+            {t.footerMini.signup}
           </a>
         </div>
-        <p className="text-xs text-muted">© {new Date().getFullYear()} Birrly</p>
+        <p className="text-xs text-muted">{format(t.footerMini.copyright, { year: new Date().getFullYear() })}</p>
       </div>
     </footer>
   );

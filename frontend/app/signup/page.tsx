@@ -2,6 +2,8 @@
 
 import { Suspense, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { useLanguage } from '@/lib/i18n/context';
+import LanguageToggle from '@/components/LanguageToggle';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
@@ -14,6 +16,7 @@ export default function SignupPage() {
 }
 
 function SignupContent() {
+  const { t } = useLanguage();
   const params = useSearchParams();
   const ref = params.get('ref');
   const [fullName, setFullName] = useState('');
@@ -28,7 +31,7 @@ function SignupContent() {
     e.preventDefault();
     setError('');
     if (password !== confirmPassword) {
-      setError('Passwords do not match');
+      setError(t.signup.passwordMismatch);
       return;
     }
     setLoading(true);
@@ -54,15 +57,19 @@ function SignupContent() {
 
   return (
     <main className="min-h-screen flex items-center justify-center bg-ink px-6">
-      <form onSubmit={handleSubmit} className="w-full max-w-sm bg-surface border border-white/10 rounded-2xl p-8">
-        <h1 className="font-display font-bold text-2xl text-paper mb-2">Create your account</h1>
+      <div className="w-full max-w-sm">
+        <div className="flex justify-end mb-3">
+          <LanguageToggle />
+        </div>
+        <form onSubmit={handleSubmit} className="bg-surface border border-white/10 rounded-2xl p-8">
+        <h1 className="font-display font-bold text-2xl text-paper mb-2">{t.signup.title}</h1>
         {ref && (
           <p className="text-xs text-teal mb-4">
-            Invited by trader <span className="font-mono">{ref.toUpperCase()}</span>
+            {t.signup.invitedBy} <span className="font-mono">{ref.toUpperCase()}</span>
           </p>
         )}
 
-        <label className="text-sm text-muted block mb-1">Full name</label>
+        <label className="text-sm text-muted block mb-1">{t.signup.fullName}</label>
         <input
           type="text"
           required
@@ -71,7 +78,7 @@ function SignupContent() {
           className="w-full bg-surfaceRaised rounded-md px-3 py-2 text-paper mb-4 outline-none focus:ring-2 focus:ring-teal"
         />
 
-        <label className="text-sm text-muted block mb-1">Email</label>
+        <label className="text-sm text-muted block mb-1">{t.signup.email}</label>
         <input
           type="email"
           required
@@ -80,7 +87,7 @@ function SignupContent() {
           className="w-full bg-surfaceRaised rounded-md px-3 py-2 text-paper mb-4 outline-none focus:ring-2 focus:ring-teal"
         />
 
-        <label className="text-sm text-muted block mb-1">Phone</label>
+        <label className="text-sm text-muted block mb-1">{t.signup.phone}</label>
         <input
           type="tel"
           required
@@ -90,7 +97,7 @@ function SignupContent() {
           className="w-full bg-surfaceRaised rounded-md px-3 py-2 text-paper mb-4 outline-none focus:ring-2 focus:ring-teal"
         />
 
-        <label className="text-sm text-muted block mb-1">Password</label>
+        <label className="text-sm text-muted block mb-1">{t.signup.password}</label>
         <input
           type="password"
           required
@@ -100,7 +107,7 @@ function SignupContent() {
           className="w-full bg-surfaceRaised rounded-md px-3 py-2 text-paper mb-4 outline-none focus:ring-2 focus:ring-teal"
         />
 
-        <label className="text-sm text-muted block mb-1">Confirm password</label>
+        <label className="text-sm text-muted block mb-1">{t.signup.confirmPassword}</label>
         <input
           type="password"
           required
@@ -117,13 +124,14 @@ function SignupContent() {
           disabled={loading}
           className="w-full rounded-md bg-gradient-to-br from-gold to-teal px-4 py-3 text-onaccent font-medium hover:opacity-90 transition-opacity disabled:opacity-60"
         >
-          {loading ? 'Creating account…' : 'Create account'}
+          {loading ? t.signup.submitting : t.signup.submit}
         </button>
 
         <p className="text-sm text-muted mt-4 text-center">
-          Already have an account? <a href="/login" className="text-teal">Log in</a>
+          {t.signup.haveAccount} <a href="/login" className="text-teal">{t.signup.logIn}</a>
         </p>
-      </form>
+        </form>
+      </div>
     </main>
   );
 }

@@ -2,8 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/api';
+import { useLanguage } from '@/lib/i18n/context';
+import LanguageToggle from '@/components/LanguageToggle';
 
 export default function LoginPage() {
+  const { t } = useLanguage();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
@@ -61,16 +64,20 @@ export default function LoginPage() {
 
   return (
     <main className="min-h-screen flex items-center justify-center bg-ink px-6">
-      <div className="w-full max-w-sm bg-surface border border-white/10 rounded-2xl p-8">
+      <div className="w-full max-w-sm">
+        <div className="flex justify-end mb-3">
+          <LanguageToggle />
+        </div>
+        <div className="bg-surface border border-white/10 rounded-2xl p-8">
         {!preAuthToken ? (
           <form onSubmit={handleLogin}>
-            <h1 className="font-display font-bold text-2xl text-paper mb-6">Log in</h1>
+            <h1 className="font-display font-bold text-2xl text-paper mb-6">{t.login.title}</h1>
 
             {loggedOutNotice && (
-              <p className="text-sm text-gold mb-4">You were logged out after a period of inactivity.</p>
+              <p className="text-sm text-gold mb-4">{t.login.loggedOutNotice}</p>
             )}
 
-            <label className="text-sm text-muted block mb-1">Email</label>
+            <label className="text-sm text-muted block mb-1">{t.login.email}</label>
             <input
               type="email"
               required
@@ -80,9 +87,9 @@ export default function LoginPage() {
             />
 
             <div className="flex items-center justify-between mb-1">
-              <label className="text-sm text-muted">Password</label>
+              <label className="text-sm text-muted">{t.login.password}</label>
               <a href="/forgot-password" className="text-xs text-teal">
-                Forgot password?
+                {t.login.forgotPassword}
               </a>
             </div>
             <input
@@ -100,17 +107,17 @@ export default function LoginPage() {
               disabled={loading}
               className="w-full rounded-md bg-gradient-to-br from-gold to-teal px-4 py-3 text-onaccent font-medium hover:opacity-90 transition-opacity disabled:opacity-60"
             >
-              {loading ? 'Logging in…' : 'Log in'}
+              {loading ? t.login.submitting : t.login.submit}
             </button>
 
             <p className="text-sm text-muted mt-4 text-center">
-              No account yet? <a href="/signup" className="text-teal">Sign up</a>
+              {t.login.noAccount} <a href="/signup" className="text-teal">{t.login.signUp}</a>
             </p>
           </form>
         ) : (
           <form onSubmit={handleVerify}>
-            <h1 className="font-display font-bold text-2xl text-paper mb-2">Enter your code</h1>
-            <p className="text-sm text-muted mb-6">Open your authenticator app and enter the 6-digit code.</p>
+            <h1 className="font-display font-bold text-2xl text-paper mb-2">{t.login.codeTitle}</h1>
+            <p className="text-sm text-muted mb-6">{t.login.codeSubtitle}</p>
 
             <input
               inputMode="numeric"
@@ -129,10 +136,11 @@ export default function LoginPage() {
               disabled={loading}
               className="w-full rounded-md bg-gradient-to-br from-gold to-teal px-4 py-3 text-onaccent font-medium hover:opacity-90 transition-opacity disabled:opacity-60"
             >
-              {loading ? 'Verifying…' : 'Verify and log in'}
+              {loading ? t.login.verifying : t.login.verify}
             </button>
           </form>
         )}
+        </div>
       </div>
     </main>
   );
