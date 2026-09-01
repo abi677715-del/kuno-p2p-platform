@@ -5,6 +5,7 @@ import { apiFetch } from '@/lib/api';
 import { formatAmount } from '@/lib/format';
 import { shortFor } from '@/lib/networks';
 import { NetworkIcon } from '@/components/NetworkIcon';
+import { toCsv, downloadCsv } from '@/lib/csv';
 
 type NetworkOption = { network: string; label: string; withdrawalFeeUsdt?: number };
 
@@ -96,6 +97,20 @@ export default function WalletPage() {
     loadAll();
   }, []);
 
+  function exportCsv() {
+    const headers = ['Date', 'Type', 'Network', 'Amount USDT', 'Status', 'Code', 'Tx Hash'];
+    const rows = transactions.map((tx) => [
+      tx.createdAt ? new Date(tx.createdAt).toISOString() : '',
+      tx.type,
+      tx.network ?? '',
+      tx.amount,
+      tx.status,
+      tx.code ?? '',
+      tx.txHash ?? '',
+    ]);
+    downloadCsv(`birrly-wallet-activity-${new Date().toISOString().slice(0, 10)}.csv`, toCsv(headers, rows));
+  }
+
   return (
     <main className="min-h-screen bg-ink px-6 py-10 md:px-12">
       <div className="max-w-2xl mx-auto space-y-6">
@@ -123,7 +138,17 @@ export default function WalletPage() {
         <SendCard onSubmitted={loadAll} />
 
         <div className="bg-surface border border-white/10 rounded-xl p-5">
-          <h2 className="font-display font-medium text-paper mb-3">Recent activity</h2>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-display font-medium text-paper">Recent activity</h2>
+            {transactions.length > 0 && (
+              <button
+                onClick={exportCsv}
+                className="text-xs text-muted border border-white/10 rounded-md px-3 py-1.5 hover:text-paper hover:border-white/25 transition-colors"
+              >
+                Export CSV
+              </button>
+            )}
+          </div>
           <div className="space-y-2">
             {transactions.map((tx) => (
               <div key={tx.id} className="border-b border-white/5 last:border-0 pb-2 last:pb-0">
