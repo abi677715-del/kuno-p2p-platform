@@ -18,6 +18,7 @@ import { TwoFaCodeDto } from './dto/two-fa-code.dto';
 import { VerifyTwoFaLoginDto } from './dto/verify-two-fa-login.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { generateBackupCodes, normalizeBackupCode } from './backup-codes';
 
 const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000;
 
@@ -125,11 +126,49 @@ export class AuthService {
     }
 
     const isValid = authenticator.verify({ token: dto.code, secret: user.twoFaSecret });
-    if (!isValid) {
-      throw new UnauthorizedException('Invalid authentication code');
+    if (isValid) {
+      return this.issueTokens(user.id, user.email, user.role);
     }
 
-    return this.issueTokens(user.id, user.email, user.role);
+    const matchedHash = await this.matchBackupCode(dto.code, user.twoFaBackupCodes);
+    if (matchedHash) {
+      await this.usersService.consumeTwoFaBackupCode(user.id, matchedHash);
+      return this.issueTokens(user.id, user.email, user.role);
+    }
+
+    throw new UnauthorizedException('Invalid authentication code');
+  }
+
+  /** Checks a login attempt's code against the user's stored (hashed) backup codes; returns the matched hash so it can be consumed, single-use. */
+  private async matchBackupCode(rawInput: string, hashedCodes: string[]): Promise<string | undefined> {
+    const normalized = normalizeBackupCode(rawInput);
+    if (!normalized) return undefined;
+    for (const hash of hashedCodes) {
+      if (await bcrypt.compare(normalized, hash)) return hash;
+    }
+    return undefined;
+  }
+
+  /** Generates a fresh batch of backup codes, hashes them for storage, and returns the plaintext codes to show the user once. */
+  private async issueBackupCodes(userId: string): Promise<string[]> {
+    const codes = generateBackupCodes();
+    const hashed = await Promise.all(
+      codes.map((code) => bcrypt.hash(normalizeBackupCode(code), SALT_ROUNDS)),
+    );
+    await this.usersService.setTwoFaBackupCodes(userId, hashed);
+    return codes;
+  }
+
+  /** Regenerates backup codes for a user who's already logged in — requires a fresh TOTP code, since this invalidates the old ones. */
+  async regenerateBackupCodes(userId: string, dto: TwoFaCodeDto) {
+    const user = await this.usersService.findById(userId);
+    if (!user?.twoFaSecret || !user.twoFaEnabled) throw new BadRequestException('2FA is not enabled');
+
+    const isValid = authenticator.verify({ token: dto.code, secret: user.twoFaSecret });
+    if (!isValid) throw new BadRequestException('Invalid authentication code');
+
+    const backupCodes = await this.issueBackupCodes(userId);
+    return { backupCodes };
   }
 
   /** Step 1 of enabling 2FA: generates a secret + QR code, not yet persisted. */
@@ -153,7 +192,8 @@ export class AuthService {
     }
     await this.usersService.setTwoFaSecret(userId, dto.secret);
     await this.usersService.setTwoFaEnabled(userId, true);
-    return { twoFaEnabled: true };
+    const backupCodes = await this.issueBackupCodes(userId);
+    return { twoFaEnabled: true, backupCodes };
   }
 
   async disableTwoFa(userId: string, dto: TwoFaCodeDto) {

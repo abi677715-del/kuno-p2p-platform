@@ -27,6 +27,7 @@ export class UsersController {
       role: user?.role,
       emailVerified: user?.emailVerified,
       twoFaEnabled: user?.twoFaEnabled,
+      twoFaBackupCodesRemaining: user?.twoFaBackupCodes?.length ?? 0,
       avatar: user?.avatar,
       defaultPaymentMethods: user?.defaultPaymentMethods,
       bid: user ? formatBid(user.bidNumber) : null,

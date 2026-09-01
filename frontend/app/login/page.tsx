@@ -10,6 +10,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
+  const [useBackupCode, setUseBackupCode] = useState(false);
   const [preAuthToken, setPreAuthToken] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -116,18 +117,36 @@ export default function LoginPage() {
           </form>
         ) : (
           <form onSubmit={handleVerify}>
-            <h1 className="font-display font-bold text-2xl text-paper mb-2">{t.login.codeTitle}</h1>
-            <p className="text-sm text-muted mb-6">{t.login.codeSubtitle}</p>
+            <h1 className="font-display font-bold text-2xl text-paper mb-2">
+              {useBackupCode ? 'Enter a backup code' : t.login.codeTitle}
+            </h1>
+            <p className="text-sm text-muted mb-6">
+              {useBackupCode
+                ? 'Enter one of the backup codes you saved when you set up 2FA.'
+                : t.login.codeSubtitle}
+            </p>
 
             <input
-              inputMode="numeric"
-              maxLength={6}
+              inputMode={useBackupCode ? 'text' : 'numeric'}
+              maxLength={useBackupCode ? 9 : 6}
               required
               value={code}
               onChange={(e) => setCode(e.target.value)}
-              className="w-full bg-surfaceRaised rounded-md px-3 py-2 text-paper mb-6 outline-none focus:ring-2 focus:ring-teal font-mono text-center text-xl tracking-widest"
-              placeholder="000000"
+              className="w-full bg-surfaceRaised rounded-md px-3 py-2 text-paper mb-3 outline-none focus:ring-2 focus:ring-teal font-mono text-center text-xl tracking-widest"
+              placeholder={useBackupCode ? 'A1B2-C3D4' : '000000'}
             />
+
+            <button
+              type="button"
+              onClick={() => {
+                setUseBackupCode((v) => !v);
+                setCode('');
+                setError('');
+              }}
+              className="block text-xs text-teal hover:underline mb-6"
+            >
+              {useBackupCode ? 'Use your authenticator app instead' : 'Use a backup code instead'}
+            </button>
 
             {error && <p className="text-sm text-red-400 mb-4">{error}</p>}
 
