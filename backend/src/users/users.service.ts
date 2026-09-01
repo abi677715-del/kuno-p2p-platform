@@ -80,8 +80,22 @@ export class UsersService {
   setTwoFaEnabled(userId: string, enabled: boolean) {
     return this.prisma.user.update({
       where: { id: userId },
-      data: { twoFaEnabled: enabled, ...(enabled ? {} : { twoFaSecret: null }) },
+      data: {
+        twoFaEnabled: enabled,
+        ...(enabled ? {} : { twoFaSecret: null, twoFaBackupCodes: [] }),
+      },
     });
+  }
+
+  setTwoFaBackupCodes(userId: string, hashedCodes: string[]) {
+    return this.prisma.user.update({ where: { id: userId }, data: { twoFaBackupCodes: hashedCodes } });
+  }
+
+  /** Removes one consumed backup code hash, leaving the rest usable. */
+  async consumeTwoFaBackupCode(userId: string, hashToRemove: string) {
+    const user = await this.findById(userId);
+    const remaining = (user?.twoFaBackupCodes ?? []).filter((h) => h !== hashToRemove);
+    await this.prisma.user.update({ where: { id: userId }, data: { twoFaBackupCodes: remaining } });
   }
 
   /** Resolves a referral code (someone's trader ID) to their user id, or undefined if it doesn't match anyone. */

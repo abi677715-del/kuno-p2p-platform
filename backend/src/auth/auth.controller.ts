@@ -75,4 +75,10 @@ export class AuthController {
   disableTwoFa(@Req() req: any, @Body() dto: TwoFaCodeDto) {
     return this.authService.disableTwoFa(req.user.userId, dto);
   }
+
+  @Post('2fa/backup-codes/regenerate')
+  @UseGuards(JwtAuthGuard)
+  regenerateBackupCodes(@Req() req: any, @Body() dto: TwoFaCodeDto) {
+    return this.authService.regenerateBackupCodes(req.user.userId, dto);
+  }
 }
