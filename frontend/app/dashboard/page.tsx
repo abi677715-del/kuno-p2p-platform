@@ -3,19 +3,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { formatAmount } from '@/lib/format';
 import AnimatedBackground from '@/components/AnimatedBackground';
+import { useLanguage } from '@/lib/i18n/context';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
-
-const links = [
-  { href: '/marketplace', label: 'Marketplace', description: 'Browse and post buy/sell offers' },
-  { href: '/trades', label: 'Trades', description: 'Track your active and past trades' },
-  { href: '/wallet', label: 'Wallet', description: 'Deposit, withdraw, and view balances' },
-  { href: '/notifications', label: 'Notifications', description: 'Updates on your trades and account' },
-  { href: '/kyc', label: 'Verification', description: 'Complete KYC to unlock higher limits' },
-  { href: '/merchant/apply', label: 'Become a merchant', description: 'Apply for 1% fees and a merchant badge' },
-  { href: '/profile', label: 'Profile & Settings', description: 'Edit your info, password, and security' },
-  { href: '/support', label: 'Support', description: 'FAQs and help requests' },
-];
 
 const adminLinks = [
   { href: '/admin', label: 'Overview', description: 'At-a-glance counts of everything waiting on you' },
@@ -66,6 +56,17 @@ function resizeImage(file: File, maxSize = 256): Promise<string> {
 }
 
 export default function DashboardPage() {
+  const { t } = useLanguage();
+  const links = [
+    { href: '/marketplace', ...t.dashboard.links.marketplace },
+    { href: '/trades', ...t.dashboard.links.trades },
+    { href: '/wallet', ...t.dashboard.links.wallet },
+    { href: '/notifications', ...t.dashboard.links.notifications },
+    { href: '/kyc', ...t.dashboard.links.kyc },
+    { href: '/merchant/apply', ...t.dashboard.links.merchant },
+    { href: '/profile', ...t.dashboard.links.profile },
+    { href: '/support', ...t.dashboard.links.support },
+  ];
   const [ready, setReady] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -149,7 +150,7 @@ export default function DashboardPage() {
             <h1 className="font-display font-bold text-2xl text-paper">Dashboard</h1>
             {balance !== null && (
               <a href="/wallet" className="inline-block mt-1 hover:opacity-90 transition-opacity">
-                <span className="text-xs text-muted">Balance </span>
+                <span className="text-xs text-muted">{t.dashboard.balance} </span>
                 <span className="font-mono text-sm text-teal">{formatAmount(balance, 4)} USDT</span>
               </a>
             )}
@@ -178,7 +179,7 @@ export default function DashboardPage() {
                   onClick={() => fileInputRef.current?.click()}
                   className="w-full text-left px-4 py-2 text-sm text-paper hover:bg-surfaceRaised transition-colors"
                 >
-                  Change profile photo
+                  {t.dashboard.menu.changePhoto}
                 </button>
                 <input
                   ref={fileInputRef}
@@ -189,16 +190,16 @@ export default function DashboardPage() {
                 />
 
                 <a href="/profile" className="block px-4 py-2 text-sm text-paper hover:bg-surfaceRaised transition-colors">
-                  Profile
+                  {t.dashboard.menu.profile}
                 </a>
                 <a href="/settings/2fa" className="block px-4 py-2 text-sm text-paper hover:bg-surfaceRaised transition-colors">
-                  Security (2FA)
+                  {t.dashboard.menu.security}
                 </a>
                 <a href="/kyc" className="block px-4 py-2 text-sm text-paper hover:bg-surfaceRaised transition-colors">
-                  Verification (KYC)
+                  {t.dashboard.menu.verification}
                 </a>
                 <a href="/support" className="block px-4 py-2 text-sm text-paper hover:bg-surfaceRaised transition-colors">
-                  Support
+                  {t.dashboard.menu.support}
                 </a>
 
                 <div className="border-t border-white/10 mt-1 pt-1">
@@ -206,7 +207,7 @@ export default function DashboardPage() {
                     onClick={logout}
                     className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-surfaceRaised transition-colors"
                   >
-                    Log out
+                    {t.dashboard.menu.logout}
                   </button>
                 </div>
               </div>
@@ -231,7 +232,7 @@ export default function DashboardPage() {
 
         {isAdmin && (
           <div className="mt-10">
-            <h2 className="font-display font-bold text-lg text-gold mb-4">Admin</h2>
+            <h2 className="font-display font-bold text-lg text-gold mb-4">{t.dashboard.adminHeading}</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {adminLinks.map((link) => (
                 <a

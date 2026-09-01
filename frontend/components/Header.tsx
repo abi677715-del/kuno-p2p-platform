@@ -2,6 +2,7 @@
 
 import { usePathname } from 'next/navigation';
 import ThemeToggle from './ThemeToggle';
+import LanguageToggle from './LanguageToggle';
 
 const HIDDEN_ON = ['/', '/login', '/signup'];
 
@@ -14,7 +15,10 @@ export default function Header() {
       <a href="/dashboard" className="inline-flex items-center">
         <img src="/birrly-logo.png" alt="Birrly" className="h-8 w-auto" />
       </a>
-      <ThemeToggle />
+      <div className="flex items-center gap-2">
+        <LanguageToggle />
+        <ThemeToggle />
+      </div>
     </header>
   );
 }

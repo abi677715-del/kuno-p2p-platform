@@ -1,34 +1,39 @@
-import AdBanner from './AdBanner';
+'use client';
 
-const columns = [
-  {
-    title: 'Product',
-    links: [
-      { href: '/marketplace', label: 'Marketplace' },
-      { href: '/trades', label: 'Trades' },
-      { href: '/wallet', label: 'Wallet' },
-      { href: '/support', label: 'Support' },
-    ],
-  },
-  {
-    title: 'Company',
-    links: [
-      { href: '/about', label: 'About' },
-      { href: '/support', label: 'Contact us' },
-      { href: '/advertise', label: 'Advertise with us' },
-    ],
-  },
-  {
-    title: 'Legal',
-    links: [
-      { href: '/terms', label: 'Terms of Service' },
-      { href: '/privacy', label: 'Privacy Policy' },
-      { href: '/risk-disclosure', label: 'Risk Disclosure' },
-    ],
-  },
-];
+import AdBanner from './AdBanner';
+import { useLanguage, format } from '@/lib/i18n/context';
 
 export default function Footer() {
+  const { t } = useLanguage();
+
+  const columns = [
+    {
+      title: t.footer.productTitle,
+      links: [
+        { href: '/marketplace', label: t.footer.marketplace },
+        { href: '/trades', label: t.footer.trades },
+        { href: '/wallet', label: t.footer.wallet },
+        { href: '/support', label: t.footer.support },
+      ],
+    },
+    {
+      title: t.footer.companyTitle,
+      links: [
+        { href: '/about', label: t.footer.about },
+        { href: '/support', label: t.footer.contactUs },
+        { href: '/advertise', label: t.footer.advertise },
+      ],
+    },
+    {
+      title: t.footer.legalTitle,
+      links: [
+        { href: '/terms', label: t.footer.terms },
+        { href: '/privacy', label: t.footer.privacy },
+        { href: '/risk-disclosure', label: t.footer.riskDisclosure },
+      ],
+    },
+  ];
+
   return (
     <footer className="bg-ink border-t border-white/10 mt-16">
       <div className="max-w-6xl mx-auto px-6 py-12 md:px-12">
@@ -52,15 +57,11 @@ export default function Footer() {
         </div>
 
         <p className="text-xs text-muted leading-relaxed mb-6 max-w-3xl">
-          <strong className="text-paper/70">Risk disclaimer:</strong> Trading cryptocurrency involves significant
-          risk and may not be suitable for everyone. Prices can be volatile, and you may lose some or all of your
-          funds. Birrly is a peer-to-peer marketplace that facilitates trades between users and holds funds in
-          escrow only for the duration of an active trade — it does not provide investment advice. Please trade
-          responsibly and only with funds you can afford to lose.
+          <strong className="text-paper/70">{t.footer.riskLabel}</strong> {t.footer.riskBody}
         </p>
 
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-6 border-t border-white/10">
-          <p className="text-xs text-muted">© {new Date().getFullYear()} Birrly. All rights reserved.</p>
+          <p className="text-xs text-muted">{format(t.footer.copyright, { year: new Date().getFullYear() })}</p>
         </div>
       </div>
 
