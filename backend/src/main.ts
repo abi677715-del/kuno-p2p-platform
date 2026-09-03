@@ -14,6 +14,7 @@ import { json } from 'express';
 import helmet from 'helmet';
 import { join } from 'path';
 import { AppModule } from './app.module';
+import { getAllowedOrigins } from './common/cors';
 
 async function bootstrap() {
   console.log('BOOT: creating app');
@@ -22,10 +23,7 @@ async function bootstrap() {
   app.use(helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: false }));
   app.use(json({ limit: '2mb' }));
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
-  const allowedOrigins = [process.env.FRONTEND_URL, 'https://supportive-growth-production-b6d0.up.railway.app'].filter(
-    Boolean,
-  ) as string[];
-  app.enableCors({ origin: allowedOrigins, credentials: true });
+  app.enableCors({ origin: getAllowedOrigins(), credentials: true });
   // KYC documents/selfies live under ./uploads and are intentionally NOT
   // served here — they're only reachable through the authenticated
   // GET /kyc/file/:id/:type route (owner or admin/support only). Banner ad

@@ -63,14 +63,12 @@ Vercel is built for Next.js specifically and is the least friction option:
 
 ### 3. Connect them
 
-Once both are deployed, go back to the backend's environment variables and make sure
-CORS isn't wide open in production — right now `main.ts` calls `app.enableCors()` with
-no restriction, which is fine for development but should be limited to your frontend's
-actual domain before this handles real users:
-
-```ts
-app.enableCors({ origin: 'https://your-app.vercel.app' });
-```
+Once both are deployed, set `FRONTEND_URL` on the backend to your frontend's actual
+domain (e.g. `https://your-app.vercel.app`). `backend/src/common/cors.ts` builds the
+CORS allowlist from `FRONTEND_URL` (plus one hardcoded Railway preview URL) and is
+shared by the REST API (`main.ts`) and both Socket.io gateways
+(`notifications.gateway.ts`, `trade-chat.gateway.ts`), so setting this one variable
+locks down all three instead of leaving the websocket gateways open to `*`.
 
 ### Things to fix before this handles real money and real users
 

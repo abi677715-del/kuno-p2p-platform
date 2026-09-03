@@ -9,8 +9,9 @@ import {
 import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 import { TradesService } from './trades.service';
+import { getAllowedOrigins } from '../common/cors';
 
-@WebSocketGateway({ cors: { origin: process.env.FRONTEND_URL ?? '*' } })
+@WebSocketGateway({ cors: { origin: getAllowedOrigins() } })
 export class TradeChatGateway implements OnGatewayConnection {
   @WebSocketServer()
   server: Server;

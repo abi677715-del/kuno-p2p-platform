@@ -38,6 +38,7 @@ services:
       PLATFORM_DEPOSIT_ADDRESS: TEgqauvdKFjcXDGfywsH1oWyQKegQbN4pA
       PLATFORM_FEE_PERCENT: "2"
       PORT: 4000
+      FRONTEND_URL: http://localhost:3000
     ports:
       - "4000:4000"
     volumes:
