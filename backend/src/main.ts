@@ -19,6 +19,10 @@ async function bootstrap() {
   console.log('BOOT: creating app');
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   console.log('BOOT: app created');
+  // Railway/Render sit behind a reverse proxy — without this, req.ip is the
+  // proxy's address, not the visitor's (used for login-activity IPs and
+  // auth rate limiting).
+  app.set('trust proxy', 1);
   app.use(helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: false }));
   app.use(json({ limit: '2mb' }));
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));

@@ -19,6 +19,7 @@ import { VerifyTwoFaLoginDto } from './dto/verify-two-fa-login.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { generateBackupCodes, normalizeBackupCode } from './backup-codes';
+import { PrismaService } from '../common/prisma.service';
 
 const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000;
 
@@ -31,9 +32,25 @@ export class AuthService {
     private usersService: UsersService,
     private jwtService: JwtService,
     private mailService: MailService,
+    private prisma: PrismaService,
   ) {}
 
-  async signup(dto: SignupDto) {
+  /** Records a successful login/signup for the "recent activity" list — best-effort, never blocks the response. */
+  recordLoginEvent(userId: string, req: { ip?: string; headers: Record<string, unknown> }) {
+    const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.ip;
+    const userAgent = req.headers['user-agent'] as string | undefined;
+    this.prisma.loginEvent
+      .create({ data: { userId, ipAddress: ipAddress ?? null, userAgent: userAgent ?? null } })
+      .catch(() => {});
+  }
+
+  /** Invalidates every currently-issued access token for this user (including the one making this request) by requiring tokens minted after this moment. */
+  async logoutAllDevices(userId: string) {
+    await this.usersService.setSessionInvalidatedAt(userId, new Date());
+    return { loggedOut: true };
+  }
+
+  async signup(dto: SignupDto, req: { ip?: string; headers: Record<string, unknown> }) {
     const existing = await this.usersService.findByEmail(dto.email);
     if (existing) {
       throw new ConflictException('An account with this email already exists');
@@ -47,6 +64,7 @@ export class AuthService {
       await this.mailService.sendVerificationEmail(user.email, user.emailVerificationToken);
     }
 
+    this.recordLoginEvent(user.id, req);
     return this.issueTokens(user.id, user.email, user.role);
   }
 
@@ -85,7 +103,7 @@ export class AuthService {
    * It returns a short-lived preAuthToken that must be exchanged for real
    * tokens via verifyTwoFaLogin() once the user supplies a valid TOTP code.
    */
-  async login(dto: LoginDto) {
+  async login(dto: LoginDto, req: { ip?: string; headers: Record<string, unknown> }) {
     const user = await this.usersService.findByEmail(dto.email);
     if (!user) {
       throw new UnauthorizedException('Invalid email or password');
@@ -106,10 +124,11 @@ export class AuthService {
       return { requiresTwoFa: true, preAuthToken };
     }
 
+    this.recordLoginEvent(currentUser.id, req);
     return this.issueTokens(currentUser.id, currentUser.email, currentUser.role);
   }
 
-  async verifyTwoFaLogin(dto: VerifyTwoFaLoginDto) {
+  async verifyTwoFaLogin(dto: VerifyTwoFaLoginDto, req: { ip?: string; headers: Record<string, unknown> }) {
     let payload: { sub: string; twoFaPending: boolean };
     try {
       payload = await this.jwtService.verifyAsync(dto.preAuthToken, { secret: process.env.JWT_SECRET });
@@ -127,12 +146,14 @@ export class AuthService {
 
     const isValid = authenticator.verify({ token: dto.code, secret: user.twoFaSecret });
     if (isValid) {
+      this.recordLoginEvent(user.id, req);
       return this.issueTokens(user.id, user.email, user.role);
     }
 
     const matchedHash = await this.matchBackupCode(dto.code, user.twoFaBackupCodes);
     if (matchedHash) {
       await this.usersService.consumeTwoFaBackupCode(user.id, matchedHash);
+      this.recordLoginEvent(user.id, req);
       return this.issueTokens(user.id, user.email, user.role);
     }
 

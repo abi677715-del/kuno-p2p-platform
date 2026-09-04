@@ -134,6 +134,7 @@ model User {
   defaultPaymentMethods  String[]   @default([])
   referredById           String?
   termsAcceptedAt        DateTime?
+  sessionInvalidatedAt   DateTime?
 
   kycRecord        KycRecord?
   wallets          Wallet[]
@@ -158,8 +159,20 @@ model User {
   ratingsGiven         TradeRating[]          @relation("rater")
   ratingsReceived      TradeRating[]          @relation("ratedUser")
   pushSubscriptions    PushSubscription[]
+  loginEvents          LoginEvent[]
 
   @@map("users")
+}
+
+model LoginEvent {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@map("login_events")
 }
 
 model PushSubscription {
