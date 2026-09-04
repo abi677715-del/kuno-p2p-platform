@@ -167,6 +167,19 @@ export class UsersService {
     };
   }
 
+  setSessionInvalidatedAt(userId: string, when: Date) {
+    return this.prisma.user.update({ where: { id: userId }, data: { sessionInvalidatedAt: when } });
+  }
+
+  /** The user's most recent successful logins, for a "recent activity" list — newest first. */
+  getLoginActivity(userId: string, limit = 10) {
+    return this.prisma.loginEvent.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    });
+  }
+
   async verifyEmail(token: string) {
     const user = await this.prisma.user.findUnique({ where: { emailVerificationToken: token } });
     if (!user) return null;

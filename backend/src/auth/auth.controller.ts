@@ -21,15 +21,15 @@ export class AuthController {
 
   @Post('signup')
   @Throttle(AUTH_THROTTLE)
-  signup(@Body() dto: SignupDto) {
-    return this.authService.signup(dto);
+  signup(@Body() dto: SignupDto, @Req() req: any) {
+    return this.authService.signup(dto, req);
   }
 
   @Post('login')
   @HttpCode(200)
   @Throttle(AUTH_THROTTLE)
-  login(@Body() dto: LoginDto) {
-    return this.authService.login(dto);
+  login(@Body() dto: LoginDto, @Req() req: any) {
+    return this.authService.login(dto, req);
   }
 
   @Post('verify-email')
@@ -54,8 +54,8 @@ export class AuthController {
 
   @Post('2fa/verify-login')
   @HttpCode(200)
-  verifyTwoFaLogin(@Body() dto: VerifyTwoFaLoginDto) {
-    return this.authService.verifyTwoFaLogin(dto);
+  verifyTwoFaLogin(@Body() dto: VerifyTwoFaLoginDto, @Req() req: any) {
+    return this.authService.verifyTwoFaLogin(dto, req);
   }
 
   @Post('2fa/setup')
@@ -80,5 +80,12 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   regenerateBackupCodes(@Req() req: any, @Body() dto: TwoFaCodeDto) {
     return this.authService.regenerateBackupCodes(req.user.userId, dto);
+  }
+
+  @Post('logout-all')
+  @HttpCode(200)
+  @UseGuards(JwtAuthGuard)
+  logoutAllDevices(@Req() req: any) {
+    return this.authService.logoutAllDevices(req.user.userId);
   }
 }

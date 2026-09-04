@@ -209,6 +209,9 @@ export default function ProfilePage() {
           <a href="/settings/relations" className="block text-sm text-teal hover:underline">
             Blocked & favorite traders →
           </a>
+          <a href="/settings/sessions" className="block text-sm text-teal hover:underline">
+            Login activity & log out of all devices →
+          </a>
         </div>
 
         <div className="bg-surface border border-white/10 rounded-xl p-6 space-y-3">

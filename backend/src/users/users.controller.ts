@@ -10,6 +10,7 @@ import { UpdateAvatarDto } from './dto/update-avatar.dto';
 import { UpdateMerchantDto } from './dto/update-merchant.dto';
 import { SetRoleDto } from './dto/set-role.dto';
 import { formatBid } from '../common/bid';
+import { summarizeUserAgent } from '../auth/user-agent';
 
 @Controller('users')
 @UseGuards(JwtAuthGuard)
@@ -83,5 +84,16 @@ export class UsersController {
   @Get('me/referrals')
   myReferrals(@Req() req: any) {
     return this.usersService.getReferralStats(req.user.userId);
+  }
+
+  @Get('me/login-activity')
+  async myLoginActivity(@Req() req: any) {
+    const events = await this.usersService.getLoginActivity(req.user.userId);
+    return events.map((e) => ({
+      id: e.id,
+      device: summarizeUserAgent(e.userAgent),
+      ipAddress: e.ipAddress,
+      createdAt: e.createdAt,
+    }));
   }
 }
