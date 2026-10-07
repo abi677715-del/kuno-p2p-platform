@@ -28,6 +28,10 @@ export class TradeChatGateway implements OnGatewayConnection {
     }
     try {
       const payload = await this.jwtService.verifyAsync(token, { secret: process.env.JWT_SECRET });
+      if (payload.twoFaPending || !payload.role) {
+        client.disconnect();
+        return;
+      }
       client.data.userId = payload.sub;
     } catch {
       client.disconnect();

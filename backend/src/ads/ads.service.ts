@@ -64,6 +64,13 @@ export class AdsService {
     if (pricingMode === AdPricingMode.FLOATING && dto.marginPercent === undefined) {
       throw new BadRequestException('Floating-price ads need a margin percentage');
     }
+    if (dto.marginPercent !== undefined) {
+      const margin = parseFloat(dto.marginPercent);
+      // A margin of -100% or below would make the effective price zero or negative.
+      if (!Number.isFinite(margin) || margin < -50 || margin > 50) {
+        throw new BadRequestException('Margin must be between -50% and 50%');
+      }
+    }
 
     this.assertValidLimits(dto.minLimitEtb, dto.maxLimitEtb);
 

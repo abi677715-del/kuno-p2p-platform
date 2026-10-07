@@ -61,6 +61,9 @@ export class TradesService {
 
     const amountUsdt = dto.amountUsdt;
     const amountEtb = (parseFloat(amountUsdt) * parseFloat(ad.effectivePriceEtb)).toFixed(4);
+    if (!(parseFloat(amountUsdt) > 0) || !(parseFloat(ad.effectivePriceEtb) > 0)) {
+      throw new BadRequestException('Trade amount and price must be greater than 0');
+    }
 
     const amountEtbNum = parseFloat(amountEtb);
     const minLimit = parseFloat(ad.minLimitEtb.toString());
@@ -201,8 +204,12 @@ export class TradesService {
   }
 
   /** Trade lookup for display — also includes the fee percent that'll apply on release and the auto-timeout deadline. */
-  async getOne(id: string) {
+  async getOne(id: string, viewer: { userId: string; role: string }) {
     const trade = await this.findById(id);
+    // Trades carry both parties' emails and amounts — only the two
+    // participants and staff may read one.
+    const isStaff = viewer.role === 'ADMIN' || viewer.role === 'SUPPORT';
+    if (!isStaff) this.assertParticipant(trade, viewer.userId);
     const feePercent = await this.resolveFeePercent(trade);
     const timeoutAt = this.computeTimeoutAt(trade);
     return { ...trade, feePercent, timeoutAt };
@@ -231,6 +238,26 @@ export class TradesService {
     return this.walletService.getFeePercent(!!maker?.isMerchant);
   }
 
+  /**
+   * Moves a trade between statuses only if it's still in one of the expected
+   * ones, as a single conditional UPDATE. A read-then-write status check let
+   * two concurrent requests (e.g. two "cancel" clicks, or a confirm racing a
+   * dispute) both pass and move the same escrow twice.
+   */
+  private async claimTradeStatus(
+    tradeId: string,
+    from: TradeStatus[],
+    to: TradeStatus,
+    errorMessage: string,
+    extraData: { paidAt?: Date; completedAt?: Date } = {},
+  ) {
+    const claimed = await this.prisma.trade.updateMany({
+      where: { id: tradeId, status: { in: from } },
+      data: { status: to, ...extraData },
+    });
+    if (claimed.count === 0) throw new BadRequestException(errorMessage);
+  }
+
   private assertParticipant(trade: { buyerId: string; sellerId: string }, userId: string) {
     if (trade.buyerId !== userId && trade.sellerId !== userId) {
       throw new ForbiddenException('You are not part of this trade');
@@ -241,13 +268,10 @@ export class TradesService {
   async markPaid(userId: string, tradeId: string) {
     const trade = await this.findById(tradeId);
     if (trade.buyerId !== userId) throw new ForbiddenException('Only the buyer can mark a trade as paid');
-    if (trade.status !== TradeStatus.ESCROW_LOCKED) {
-      throw new BadRequestException(`Cannot mark paid from status ${trade.status}`);
-    }
-    const updated = await this.prisma.trade.update({
-      where: { id: tradeId },
-      data: { status: TradeStatus.PAID, paidAt: new Date() },
+    await this.claimTradeStatus(tradeId, [TradeStatus.ESCROW_LOCKED], TradeStatus.PAID, `Cannot mark paid from status ${trade.status}`, {
+      paidAt: new Date(),
     });
+    const updated = await this.prisma.trade.findUniqueOrThrow({ where: { id: tradeId } });
     const message = 'The buyer marked this trade as paid — please confirm once you\u2019ve received it.';
     await this.notificationsService.create(
       trade.sellerId,
@@ -281,23 +305,29 @@ export class TradesService {
     await this.kycService.assertApproved(trade.buyerId);
 
     const feePercent = await this.resolveFeePercent(trade);
-    const releaseResult = await this.walletService.releaseFunds(
-      trade.sellerId,
-      trade.buyerId,
-      Currency.USDT,
-      trade.amountUsdt.toString(),
-      trade.id,
-      feePercent,
-    );
+    await this.claimTradeStatus(tradeId, [TradeStatus.PAID], TradeStatus.COMPLETED, `Cannot confirm from status ${trade.status}`, {
+      completedAt: new Date(),
+    });
+    let releaseResult: Awaited<ReturnType<WalletService['releaseFunds']>>;
+    try {
+      releaseResult = await this.walletService.releaseFunds(
+        trade.sellerId,
+        trade.buyerId,
+        Currency.USDT,
+        trade.amountUsdt.toString(),
+        trade.id,
+        feePercent,
+      );
+    } catch (err) {
+      await this.prisma.trade.update({ where: { id: tradeId }, data: { status: TradeStatus.PAID, completedAt: null } });
+      throw err;
+    }
     await this.prisma.escrow.update({
       where: { tradeId },
       data: { status: EscrowStatus.RELEASED, releasedAt: new Date() },
     });
 
-    const updated = await this.prisma.trade.update({
-      where: { id: tradeId },
-      data: { status: TradeStatus.COMPLETED, completedAt: new Date() },
-    });
+    const updated = await this.prisma.trade.findUniqueOrThrow({ where: { id: tradeId } });
     const message = `Trade complete — ${releaseResult.netAmount} USDT released to your wallet (${releaseResult.feeAmount} USDT platform fee).`;
     await this.notificationsService.create(
       trade.buyerId,
@@ -376,16 +406,24 @@ export class TradesService {
   async cancelTrade(userId: string, tradeId: string) {
     const trade = await this.findById(tradeId);
     this.assertParticipant(trade, userId);
-    if (![TradeStatus.PENDING, TradeStatus.ESCROW_LOCKED].includes(trade.status as any)) {
-      throw new BadRequestException('Trade can no longer be cancelled — payment has already been marked');
-    }
+    await this.claimTradeStatus(
+      tradeId,
+      [TradeStatus.PENDING, TradeStatus.ESCROW_LOCKED],
+      TradeStatus.CANCELLED,
+      'Trade can no longer be cancelled — payment has already been marked',
+    );
 
     if (trade.escrow) {
-      await this.walletService.refundFunds(trade.sellerId, Currency.USDT, trade.amountUsdt.toString(), trade.id);
+      try {
+        await this.walletService.refundFunds(trade.sellerId, Currency.USDT, trade.amountUsdt.toString(), trade.id);
+      } catch (err) {
+        await this.prisma.trade.update({ where: { id: tradeId }, data: { status: trade.status } });
+        throw err;
+      }
       await this.prisma.escrow.update({ where: { tradeId }, data: { status: EscrowStatus.REFUNDED } });
     }
 
-    const updated = await this.prisma.trade.update({ where: { id: tradeId }, data: { status: TradeStatus.CANCELLED } });
+    const updated = await this.prisma.trade.findUniqueOrThrow({ where: { id: tradeId } });
     const counterparty = userId === trade.buyerId ? trade.sellerId : trade.buyerId;
     const message = 'This trade was cancelled.';
     await this.notificationsService.create(
@@ -401,15 +439,20 @@ export class TradesService {
   async raiseDispute(userId: string, tradeId: string, dto: DisputeTradeDto) {
     const trade = await this.findById(tradeId);
     this.assertParticipant(trade, userId);
-    if (trade.status === TradeStatus.COMPLETED || trade.status === TradeStatus.CANCELLED) {
-      throw new BadRequestException('Cannot dispute a finished trade');
-    }
+    // Only trades with escrow actually locked can be disputed — and only once:
+    // a second open dispute on the same trade could be resolved a second time.
+    await this.claimTradeStatus(
+      tradeId,
+      [TradeStatus.ESCROW_LOCKED, TradeStatus.PAID],
+      TradeStatus.DISPUTED,
+      trade.status === TradeStatus.DISPUTED ? 'This trade is already in dispute' : 'This trade can no longer be disputed',
+    );
 
     await this.prisma.dispute.create({
       data: { tradeId, raisedById: userId, reason: dto.reason, evidenceUrl: dto.evidenceUrl, status: DisputeStatus.OPEN },
     });
 
-    const updated = await this.prisma.trade.update({ where: { id: tradeId }, data: { status: TradeStatus.DISPUTED } });
+    const updated = await this.prisma.trade.findUniqueOrThrow({ where: { id: tradeId } });
 
     const counterparty = userId === trade.buyerId ? trade.sellerId : trade.buyerId;
     const message = 'A dispute was opened on this trade — our support team will review the chat log and evidence.';
@@ -470,11 +513,15 @@ export class TradesService {
     });
 
     for (const trade of stale) {
+      const claimed = await this.prisma.trade.updateMany({
+        where: { id: trade.id, status: TradeStatus.ESCROW_LOCKED },
+        data: { status: TradeStatus.CANCELLED },
+      });
+      if (claimed.count === 0) continue; // the buyer marked paid or someone cancelled in the meantime
       if (trade.escrow) {
         await this.walletService.refundFunds(trade.sellerId, Currency.USDT, trade.amountUsdt.toString(), trade.id);
         await this.prisma.escrow.update({ where: { tradeId: trade.id }, data: { status: EscrowStatus.REFUNDED } });
       }
-      await this.prisma.trade.update({ where: { id: trade.id }, data: { status: TradeStatus.CANCELLED } });
       const message = `This trade was automatically cancelled — no payment was marked within ${olderThanMinutes} minutes.`;
       await Promise.all([
         this.notificationsService.create(trade.buyerId, 'TRADE_CANCELLED', { tradeId: trade.id, message }, { subject: 'Trade cancelled', message, tradeId: trade.id }),
@@ -497,6 +544,11 @@ export class TradesService {
     });
 
     for (const trade of stale) {
+      const claimed = await this.prisma.trade.updateMany({
+        where: { id: trade.id, status: TradeStatus.PAID },
+        data: { status: TradeStatus.DISPUTED },
+      });
+      if (claimed.count === 0) continue; // the seller confirmed or someone disputed in the meantime
       await this.prisma.dispute.create({
         data: {
           tradeId: trade.id,
@@ -505,7 +557,6 @@ export class TradesService {
           status: DisputeStatus.OPEN,
         },
       });
-      await this.prisma.trade.update({ where: { id: trade.id }, data: { status: TradeStatus.DISPUTED } });
       const message = 'The seller didn’t confirm your payment in time — this trade has been escalated to support for review.';
       await Promise.all([
         this.notificationsService.create(trade.buyerId, 'DISPUTE_OPENED', { tradeId: trade.id, message }, { subject: 'Trade escalated to support', message, tradeId: trade.id }),
@@ -571,10 +622,31 @@ export class TradesService {
     if (dispute.status !== DisputeStatus.OPEN) throw new BadRequestException('Dispute already resolved');
 
     const { trade } = dispute;
-
     if (dto.outcome === DisputeOutcome.RELEASE_TO_BUYER) {
       await this.kycService.assertApproved(trade.buyerId);
+    }
 
+    // Claim the dispute and the trade atomically first, so two admins (or one
+    // double-click) can't both resolve it and move the escrow twice.
+    const claimedDispute = await this.prisma.dispute.updateMany({
+      where: { id: disputeId, status: DisputeStatus.OPEN },
+      data: { status: DisputeStatus.RESOLVED, resolvedBy: adminId, resolution: dto.resolution },
+    });
+    if (claimedDispute.count === 0) throw new BadRequestException('Dispute already resolved');
+    const finalStatus = dto.outcome === DisputeOutcome.RELEASE_TO_BUYER ? TradeStatus.COMPLETED : TradeStatus.CANCELLED;
+    const claimedTrade = await this.prisma.trade.updateMany({
+      where: { id: trade.id, status: TradeStatus.DISPUTED },
+      data: { status: finalStatus, ...(finalStatus === TradeStatus.COMPLETED ? { completedAt: new Date() } : {}) },
+    });
+    if (claimedTrade.count === 0) {
+      await this.prisma.dispute.update({
+        where: { id: disputeId },
+        data: { status: DisputeStatus.OPEN, resolvedBy: null, resolution: null },
+      });
+      throw new BadRequestException('This trade is no longer in dispute — it may already have been settled');
+    }
+
+    if (dto.outcome === DisputeOutcome.RELEASE_TO_BUYER) {
       const feePercent = await this.resolveFeePercent(trade);
       const releaseResult = await this.walletService.releaseFunds(
         trade.sellerId,
@@ -585,21 +657,13 @@ export class TradesService {
         feePercent,
       );
       await this.prisma.escrow.update({ where: { tradeId: trade.id }, data: { status: EscrowStatus.RELEASED, releasedAt: new Date() } });
-      await this.prisma.trade.update({
-        where: { id: trade.id },
-        data: { status: TradeStatus.COMPLETED, completedAt: new Date() },
-      });
       await this.creditReferralBonuses(trade, releaseResult.feeAmount);
     } else {
       await this.walletService.refundFunds(trade.sellerId, Currency.USDT, trade.amountUsdt.toString(), trade.id);
       await this.prisma.escrow.update({ where: { tradeId: trade.id }, data: { status: EscrowStatus.REFUNDED } });
-      await this.prisma.trade.update({ where: { id: trade.id }, data: { status: TradeStatus.CANCELLED } });
     }
 
-    const updatedDispute = await this.prisma.dispute.update({
-      where: { id: disputeId },
-      data: { status: DisputeStatus.RESOLVED, resolvedBy: adminId, resolution: dto.resolution },
-    });
+    const updatedDispute = await this.prisma.dispute.findUniqueOrThrow({ where: { id: disputeId } });
 
     await this.prisma.adminAuditLog.create({
       data: { adminId, action: `DISPUTE_RESOLVED: ${dto.outcome} — ${dto.resolution}`, targetId: trade.id },

@@ -6,6 +6,7 @@ import { generateTxCode } from '../wallet/tx-code';
 import { KycService } from '../kyc/kyc.service';
 import { AuthService } from '../auth/auth.service';
 import { CreateTransferDto } from './dto/create-transfer.dto';
+import { isPositiveAmount } from '../common/positive-amount';
 
 @Injectable()
 export class TransfersService {
@@ -35,7 +36,7 @@ export class TransfersService {
     await this.kycService.assertApproved(fromUserId);
     await this.authService.assertTwoFaForTransaction(fromUserId, dto.twoFaCode);
 
-    if (!(parseFloat(dto.amount) > 0)) {
+    if (!isPositiveAmount(dto.amount)) {
       throw new BadRequestException('Amount must be greater than 0');
     }
 

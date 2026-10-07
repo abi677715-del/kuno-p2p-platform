@@ -19,8 +19,17 @@ function isBootstrapAdmin(email: string) {
 export class UsersService {
   constructor(private prisma: PrismaService) {}
 
-  findByEmail(email: string) {
-    return this.prisma.user.findUnique({ where: { email } });
+  /**
+   * Emails are compared case-insensitively — the column itself is
+   * case-sensitive, so without this "Admin@x.com" and "admin@x.com" could be
+   * two separate accounts. An exact match wins if an old mixed-case
+   * duplicate already exists.
+   */
+  async findByEmail(email: string) {
+    const trimmed = email.trim();
+    const exact = await this.prisma.user.findUnique({ where: { email: trimmed } });
+    if (exact) return exact;
+    return this.prisma.user.findFirst({ where: { email: { equals: trimmed, mode: 'insensitive' } } });
   }
 
   findById(id: string) {
@@ -64,7 +73,9 @@ export class UsersService {
    * on every login so it also catches accounts that already existed.
    */
   async promoteIfBootstrapAdmin(user: User): Promise<User> {
-    if (user.role === Role.ADMIN || !isBootstrapAdmin(user.email)) {
+    // Requires a verified email: otherwise anyone could register a listed
+    // admin address (before the real admin does) and be promoted on login.
+    if (user.role === Role.ADMIN || !user.emailVerified || !isBootstrapAdmin(user.email)) {
       return user;
     }
     await this.prisma.adminAuditLog.create({
@@ -115,12 +126,13 @@ export class UsersService {
     return this.prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
         data: {
-          email,
+          email: email.trim().toLowerCase(),
           passwordHash,
           fullName,
           phone,
           emailVerificationToken: randomUUID(),
-          role: isBootstrapAdmin(email) ? Role.ADMIN : Role.USER,
+          // Never ADMIN at signup — see promoteIfBootstrapAdmin.
+          role: Role.USER,
           referredById,
         },
       });
@@ -236,7 +248,9 @@ export class UsersService {
     const passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
     await this.prisma.user.update({
       where: { id: userId },
-      data: { passwordHash, passwordResetToken: null, passwordResetExpires: null },
+      // Resetting a password is how someone recovers a stolen account, so it
+      // also signs out every existing session (see JwtStrategy).
+      data: { passwordHash, passwordResetToken: null, passwordResetExpires: null, sessionInvalidatedAt: new Date() },
     });
     return { changed: true };
   }

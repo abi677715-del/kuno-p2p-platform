@@ -1,3 +1,4 @@
+import { IsPositiveAmount } from '../../common/positive-amount';
 import { IsEnum, IsNumberString, IsString, Matches, MinLength } from 'class-validator';
 import { Currency, Network } from '@prisma/client';
 
@@ -5,7 +6,7 @@ export class RequestWithdrawalDto {
   @IsEnum(Currency)
   currency: Currency;
 
-  @IsNumberString()
+  @IsPositiveAmount()
   amount: string;
 
   @IsString()
