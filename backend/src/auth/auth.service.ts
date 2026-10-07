@@ -51,6 +51,11 @@ export class AuthService {
   }
 
   async signup(dto: SignupDto, req: { ip?: string; headers: Record<string, unknown> }) {
+    // The platform's internal commission account lives on this domain and is
+    // looked up by email — a real signup there could capture its balance.
+    if (dto.email.trim().toLowerCase().endsWith('@birrly.internal')) {
+      throw new BadRequestException('This email address cannot be used');
+    }
     const existing = await this.usersService.findByEmail(dto.email);
     if (existing) {
       throw new ConflictException('An account with this email already exists');
@@ -207,6 +212,12 @@ export class AuthService {
 
   /** Step 2: confirms the user actually scanned the QR code correctly before turning 2FA on. */
   async enableTwoFa(userId: string, dto: EnableTwoFaDto) {
+    // Without this, anyone holding a session could silently swap in their own
+    // authenticator secret and then pass every 2FA check on this account.
+    const user = await this.usersService.findById(userId);
+    if (!user) throw new BadRequestException('User not found');
+    if (user.twoFaEnabled) throw new BadRequestException('2FA is already enabled');
+
     const isValid = authenticator.verify({ token: dto.code, secret: dto.secret });
     if (!isValid) {
       throw new BadRequestException('That code doesn\u2019t match — check your authenticator app and try again');

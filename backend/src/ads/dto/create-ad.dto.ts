@@ -1,3 +1,4 @@
+import { IsPositiveAmount } from '../../common/positive-amount';
 import { IsEnum, IsNumberString, IsArray, ArrayNotEmpty, IsString, IsOptional, MaxLength } from 'class-validator';
 import { AdSide, AdPricingMode } from '@prisma/client';
 
@@ -5,13 +6,13 @@ export class CreateAdDto {
   @IsEnum(AdSide)
   side: AdSide;
 
-  @IsNumberString()
+  @IsPositiveAmount()
   priceEtb: string;
 
-  @IsNumberString()
+  @IsPositiveAmount()
   minLimitEtb: string;
 
-  @IsNumberString()
+  @IsPositiveAmount()
   maxLimitEtb: string;
 
   @IsArray()

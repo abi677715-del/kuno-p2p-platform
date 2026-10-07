@@ -1,10 +1,11 @@
+import { IsPositiveAmount } from '../../common/positive-amount';
 import { IsNumberString, IsOptional, IsString, Matches, MaxLength } from 'class-validator';
 
 export class CreateTransferDto {
   @IsString()
   recipientBid: string;
 
-  @IsNumberString()
+  @IsPositiveAmount()
   amount: string;
 
   @IsOptional()

@@ -54,6 +54,7 @@ export class AuthController {
 
   @Post('2fa/verify-login')
   @HttpCode(200)
+  @Throttle(AUTH_THROTTLE)
   verifyTwoFaLogin(@Body() dto: VerifyTwoFaLoginDto, @Req() req: any) {
     return this.authService.verifyTwoFaLogin(dto, req);
   }

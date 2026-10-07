@@ -8,6 +8,7 @@ import { generateTxCode } from './tx-code';
 import { gasFeeUsdt } from './withdrawal-fees';
 import { KycService } from '../kyc/kyc.service';
 import { AuthService } from '../auth/auth.service';
+import { assertPositiveAmount } from '../common/positive-amount';
 
 const PLATFORM_ACCOUNT_EMAIL = 'platform@birrly.internal';
 
@@ -49,7 +50,8 @@ export class WalletService {
   }
 
   /** User claims they sent funds to the platform address; sits as PENDING until an admin confirms on-chain. */
-  async requestDeposit(userId: string, currency: Currency, amount: string, txHash: string, network: Network) {
+  async requestDeposit(userId: string, currency: Currency, amount: string, rawTxHash: string, network: Network) {
+    const txHash = rawTxHash.trim();
     const wallet = await this.prisma.wallet.findUnique({ where: { userId_currency: { userId, currency } } });
     if (!wallet) throw new NotFoundException('Wallet not found');
 
@@ -58,7 +60,7 @@ export class WalletService {
     }
 
     const existing = await this.prisma.walletTransaction.findFirst({
-      where: { type: TxType.DEPOSIT, referenceId: txHash },
+      where: { type: TxType.DEPOSIT, referenceId: { equals: txHash, mode: 'insensitive' } },
     });
     if (existing) throw new BadRequestException('This transaction hash has already been submitted');
 
@@ -75,23 +77,59 @@ export class WalletService {
     });
   }
 
+  /**
+   * Moves a wallet transaction from one status to another only if it's still
+   * in the expected status, as a single conditional UPDATE. Checking status
+   * with a read and then writing let two concurrent requests (an admin
+   * double-click, or the admin and the deposit watcher at once) both pass
+   * the check and credit or refund the same transaction twice.
+   */
+  private async claimStatus(
+    client: Prisma.TransactionClient | PrismaService,
+    transactionId: string,
+    from: TxStatus,
+    to: TxStatus,
+    alreadyProcessedMessage: string,
+  ) {
+    const claimed = await client.walletTransaction.updateMany({
+      where: { id: transactionId, status: from },
+      data: { status: to },
+    });
+    if (claimed.count === 0) throw new BadRequestException(alreadyProcessedMessage);
+  }
+
   /** Admin confirms they've verified the on-chain transaction, crediting the user's balance. */
   async confirmDeposit(transactionId: string) {
     return this.prisma.$transaction(async (tx) => {
       const record = await tx.walletTransaction.findUnique({ where: { id: transactionId } });
       if (!record || record.type !== TxType.DEPOSIT) throw new NotFoundException('Deposit not found');
-      if (record.status !== TxStatus.PENDING) throw new BadRequestException('Deposit already processed');
+      await this.claimStatus(tx, transactionId, TxStatus.PENDING, TxStatus.CONFIRMED, 'Deposit already processed');
+
+      // Two submissions of the same hash can slip past the check in
+      // requestDeposit if they arrive at the same moment (or differ only in
+      // letter case) — never credit one on-chain transfer twice.
+      if (record.referenceId) {
+        const alreadyCredited = await tx.walletTransaction.findFirst({
+          where: {
+            id: { not: record.id },
+            type: TxType.DEPOSIT,
+            status: TxStatus.CONFIRMED,
+            referenceId: { equals: record.referenceId, mode: 'insensitive' },
+          },
+        });
+        if (alreadyCredited) throw new BadRequestException('This transaction hash was already credited to a deposit');
+      }
 
       await tx.wallet.update({ where: { id: record.walletId }, data: { balance: { increment: record.amount } } });
-      return tx.walletTransaction.update({ where: { id: transactionId }, data: { status: TxStatus.CONFIRMED } });
+      return tx.walletTransaction.findUniqueOrThrow({ where: { id: transactionId } });
     });
   }
 
   async rejectDeposit(transactionId: string) {
     const record = await this.prisma.walletTransaction.findUnique({ where: { id: transactionId } });
     if (!record || record.type !== TxType.DEPOSIT) throw new NotFoundException('Deposit not found');
-    if (record.status !== TxStatus.PENDING) throw new BadRequestException('Deposit already processed');
-    return this.prisma.walletTransaction.update({ where: { id: transactionId }, data: { status: TxStatus.FAILED } });
+    await this.claimStatus(this.prisma, transactionId, TxStatus.PENDING, TxStatus.FAILED, 'Deposit already processed');
+    return this.prisma.walletTransaction.findUniqueOrThrow({ where: { id: transactionId } });
   }
 
   /**
@@ -107,6 +145,7 @@ export class WalletService {
     network: Network,
     twoFaCode: string,
   ) {
+    assertPositiveAmount(amount);
     await this.kycService.assertApproved(userId);
     await this.authService.assertTwoFaForTransaction(userId, twoFaCode);
 
@@ -143,10 +182,10 @@ export class WalletService {
     return this.prisma.$transaction(async (tx) => {
       const record = await tx.walletTransaction.findUnique({ where: { id: transactionId } });
       if (!record || record.type !== TxType.WITHDRAWAL) throw new NotFoundException('Withdrawal not found');
-      if (record.status !== TxStatus.PENDING) throw new BadRequestException('Withdrawal already processed');
+      await this.claimStatus(tx, transactionId, TxStatus.PENDING, TxStatus.CONFIRMED, 'Withdrawal already processed');
 
       await tx.wallet.update({ where: { id: record.walletId }, data: { lockedBalance: { decrement: record.amount } } });
-      return tx.walletTransaction.update({ where: { id: transactionId }, data: { status: TxStatus.CONFIRMED } });
+      return tx.walletTransaction.findUniqueOrThrow({ where: { id: transactionId } });
     });
   }
 
@@ -159,7 +198,7 @@ export class WalletService {
     return this.prisma.$transaction(async (tx) => {
       const record = await tx.walletTransaction.findUnique({ where: { id: transactionId } });
       if (!record || record.type !== TxType.WITHDRAWAL) throw new NotFoundException('Withdrawal not found');
-      if (record.status !== TxStatus.PROCESSING) throw new BadRequestException('Withdrawal already processed');
+      await this.claimStatus(tx, transactionId, TxStatus.PROCESSING, TxStatus.CONFIRMED, 'Withdrawal already processed');
 
       const wallet = await tx.wallet.findUnique({ where: { id: record.walletId } });
       if (!wallet) throw new NotFoundException('Wallet not found');
@@ -181,7 +220,7 @@ export class WalletService {
         });
       }
 
-      return tx.walletTransaction.update({ where: { id: transactionId }, data: { status: TxStatus.CONFIRMED, txHash } });
+      return tx.walletTransaction.update({ where: { id: transactionId }, data: { txHash } });
     });
   }
 
@@ -190,13 +229,13 @@ export class WalletService {
     return this.prisma.$transaction(async (tx) => {
       const record = await tx.walletTransaction.findUnique({ where: { id: transactionId } });
       if (!record || record.type !== TxType.WITHDRAWAL) throw new NotFoundException('Withdrawal not found');
-      if (record.status !== TxStatus.PENDING) throw new BadRequestException('Withdrawal already processed');
+      await this.claimStatus(tx, transactionId, TxStatus.PENDING, TxStatus.FAILED, 'Withdrawal already processed');
 
       await tx.wallet.update({
         where: { id: record.walletId },
         data: { lockedBalance: { decrement: record.amount }, balance: { increment: record.amount } },
       });
-      return tx.walletTransaction.update({ where: { id: transactionId }, data: { status: TxStatus.FAILED } });
+      return tx.walletTransaction.findUniqueOrThrow({ where: { id: transactionId } });
     });
   }
 
@@ -236,6 +275,7 @@ export class WalletService {
    * conditional update so two concurrent locks can't overdraw the balance.
    */
   async lockFunds(userId: string, currency: Currency, amount: string, referenceId: string) {
+    assertPositiveAmount(amount);
     return this.prisma.$transaction(async (tx) => {
       const wallet = await tx.wallet.findUnique({ where: { userId_currency: { userId, currency } } });
       if (!wallet) throw new NotFoundException('Wallet not found');
@@ -310,6 +350,7 @@ export class WalletService {
     referenceId: string,
     feePercentValue: number,
   ) {
+    assertPositiveAmount(amount);
     const feePercent = feePercentValue / 100;
 
     return this.prisma.$transaction(async (tx) => {
@@ -352,6 +393,7 @@ export class WalletService {
 
   /** Returns locked funds back to their original owner (cancelled/disputed trade). */
   async refundFunds(userId: string, currency: Currency, amount: string, referenceId: string) {
+    assertPositiveAmount(amount);
     return this.prisma.$transaction(async (tx) => {
       const wallet = await tx.wallet.findUnique({ where: { userId_currency: { userId, currency } } });
       if (!wallet) throw new NotFoundException('Wallet not found');

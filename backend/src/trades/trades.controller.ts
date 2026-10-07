@@ -33,8 +33,8 @@ export class TradesController {
   }
 
   @Get(':id')
-  getOne(@Param('id') id: string) {
-    return this.tradesService.getOne(id);
+  getOne(@Req() req: any, @Param('id') id: string) {
+    return this.tradesService.getOne(id, req.user);
   }
 
   @Post(':id/paid')

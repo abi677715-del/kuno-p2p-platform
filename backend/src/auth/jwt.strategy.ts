@@ -13,7 +13,13 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(payload: { sub: string; email: string; role: string; iat: number }) {
+  async validate(payload: { sub: string; email: string; role: string; iat: number; twoFaPending?: boolean }) {
+    // The pre-2FA token from login (password checked, TOTP not yet) is signed
+    // with the same secret — it must never work as a real access token.
+    if (payload.twoFaPending || !payload.role) {
+      throw new UnauthorizedException('Invalid session, please log in again');
+    }
+
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
       select: { sessionInvalidatedAt: true },
