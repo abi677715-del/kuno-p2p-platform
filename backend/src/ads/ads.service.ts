@@ -1,71 +1,323 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
-import { BannerAdStatus, BannerPlacement } from '@prisma/client';
-import { SubmitBannerAdDto } from './dto/submit-banner-ad.dto';
-import { RejectBannerAdDto } from './dto/reject-banner-ad.dto';
+import { AdSide, AdStatus, AdPricingMode, Currency, TradeStatus } from '@prisma/client';
+import { CreateAdDto } from './dto/create-ad.dto';
+import { KycService } from '../kyc/kyc.service';
+import { UsersService } from '../users/users.service';
+import { RelationsService } from '../relations/relations.service';
+import { tierFor } from '../common/trader-tier';
+
+/** Merchant stats look at the trailing window only — a badge earned a year ago and never touched since is a stale, misleading trust signal. */
+const MERCHANT_STATS_WINDOW_DAYS = 30;
 
 @Injectable()
-export class BannerAdsService {
-  constructor(private prisma: PrismaService) {}
+export class AdsService {
+  constructor(
+    private prisma: PrismaService,
+    private kycService: KycService,
+    private usersService: UsersService,
+    private relationsService: RelationsService,
+  ) {}
 
-  submit(dto: SubmitBannerAdDto, videoUrl: string) {
-    return this.prisma.bannerAd.create({
+  /**
+   * Guards against ads with nonsensical or unusable limits — e.g. the min/max
+   * typed in the wrong order, zero, or negative — which would otherwise post
+   * successfully and then reject every trade attempt with a confusing error.
+   */
+  private assertValidLimits(minLimitEtb: string, maxLimitEtb: string) {
+    const min = parseFloat(minLimitEtb);
+    const max = parseFloat(maxLimitEtb);
+    if (!(min > 0)) {
+      throw new BadRequestException('Minimum limit must be greater than 0 ETB');
+    }
+    if (!(max > 0)) {
+      throw new BadRequestException('Maximum limit must be greater than 0 ETB');
+    }
+    if (min > max) {
+      throw new BadRequestException(
+        `Minimum limit (${min} ETB) can't be greater than the maximum limit (${max} ETB) — swap them or fix the amounts.`,
+      );
+    }
+  }
+
+  /**
+   * A SELL ad promises up to maxLimitEtb worth of USDT — refuse to post or
+   * reactivate it if the seller doesn't actually hold enough to cover that
+   * promise, so buyers never hit a surprise "insufficient balance" at trade time.
+   */
+  private async assertSellAdFunded(userId: string, priceEtb: string, maxLimitEtb: string) {
+    const wallet = await this.prisma.wallet.findUnique({ where: { userId_currency: { userId, currency: Currency.USDT } } });
+    const available = wallet ? parseFloat(wallet.balance.toString()) : 0;
+    const maxUsdtNeeded = parseFloat(maxLimitEtb) / parseFloat(priceEtb);
+    if (available < maxUsdtNeeded) {
+      throw new BadRequestException(
+        `You need at least ${maxUsdtNeeded.toFixed(2)} USDT available to cover this ad's max limit — your balance is ${available.toFixed(2)} USDT. Deposit more USDT or lower the max limit.`,
+      );
+    }
+  }
+
+  async create(userId: string, dto: CreateAdDto) {
+    await this.kycService.assertApproved(userId);
+    await this.usersService.assertTermsAccepted(userId);
+
+    const pricingMode = dto.pricingMode ?? AdPricingMode.FIXED;
+    if (pricingMode === AdPricingMode.FLOATING && dto.marginPercent === undefined) {
+      throw new BadRequestException('Floating-price ads need a margin percentage');
+    }
+
+    this.assertValidLimits(dto.minLimitEtb, dto.maxLimitEtb);
+
+    if (dto.side === AdSide.SELL) {
+      await this.assertSellAdFunded(userId, dto.priceEtb, dto.maxLimitEtb);
+    }
+
+    return this.prisma.ad.create({
       data: {
-        advertiserName: dto.advertiserName,
-        advertiserEmail: dto.advertiserEmail,
-        title: dto.title,
-        linkUrl: dto.linkUrl,
-        videoUrl,
-        placements: dto.placements,
+        userId,
+        side: dto.side,
+        priceEtb: dto.priceEtb,
+        minLimitEtb: dto.minLimitEtb,
+        maxLimitEtb: dto.maxLimitEtb,
+        paymentMethods: dto.paymentMethods,
+        description: dto.description,
+        pricingMode,
+        marginPercent: dto.marginPercent,
       },
     });
   }
 
-  /** Approved ads for a given slot — or all approved ads if no placement is given. */
-  listActive(placement?: BannerPlacement) {
-    return this.prisma.bannerAd.findMany({
-      where: {
-        status: BannerAdStatus.APPROVED,
-        ...(placement ? { placements: { has: placement } } : {}),
+  /**
+   * Median price across active fixed-price ads — a live, manipulation-resistant
+   * stand-in for a market rate. Floating ads are excluded because they derive
+   * their own price FROM this rate, so including them would make it chase
+   * itself in a feedback loop.
+   */
+  async getIndicativeRate() {
+    const ads = await this.prisma.ad.findMany({
+      where: { status: AdStatus.ACTIVE, pricingMode: AdPricingMode.FIXED },
+      select: { priceEtb: true },
+    });
+    if (ads.length === 0) {
+      return { rate: 187.5, sampleSize: 0 };
+    }
+    const prices = ads.map((a) => parseFloat(a.priceEtb.toString())).sort((a, b) => a - b);
+    const mid = Math.floor(prices.length / 2);
+    const median = prices.length % 2 === 0 ? (prices[mid - 1] + prices[mid]) / 2 : prices[mid];
+    return { rate: Math.round(median * 100) / 100, sampleSize: prices.length };
+  }
+
+  private async medianFixedPrice(): Promise<number> {
+    return (await this.getIndicativeRate()).rate;
+  }
+
+  /** Computes the live price for floating ads (market rate ± margin); fixed ads just use their stored price. */
+  private async attachEffectivePrice<T extends { pricingMode: AdPricingMode; priceEtb: any; marginPercent: any }>(
+    ads: T[],
+  ): Promise<(T & { effectivePriceEtb: string })[]> {
+    const hasFloating = ads.some((a) => a.pricingMode === AdPricingMode.FLOATING);
+    const rate = hasFloating ? await this.medianFixedPrice() : 0;
+    return ads.map((ad) => ({
+      ...ad,
+      effectivePriceEtb:
+        ad.pricingMode === AdPricingMode.FLOATING && ad.marginPercent !== null
+          ? (rate * (1 + parseFloat(ad.marginPercent.toString()) / 100)).toFixed(4)
+          : ad.priceEtb.toString(),
+    }));
+  }
+
+  /**
+   * Trade count, completion rate, and average release time (as seller) for
+   * the ad's poster, computed over the trailing MERCHANT_STATS_WINDOW_DAYS —
+   * see the constant's comment for why this isn't all-time.
+   */
+  private async attachMerchantStats<T extends { user: { id: string } }>(ads: T[]): Promise<T[]> {
+    const userIds = [...new Set(ads.map((a) => a.user.id))];
+    const windowStart = new Date(Date.now() - MERCHANT_STATS_WINDOW_DAYS * 24 * 60 * 60 * 1000);
+    const statsByUser = new Map<
+      string,
+      {
+        completedTrades: number;
+        completionRate: number | null;
+        tier: string | null;
+        avgReleaseMinutes: number | null;
+        avgRating: number | null;
+        ratingCount: number;
+      }
+    >();
+
+    await Promise.all(
+      userIds.map(async (userId) => {
+        const [completed, finished, releasedAsSeller, ratingAgg] = await Promise.all([
+          this.prisma.trade.count({
+            where: { OR: [{ buyerId: userId }, { sellerId: userId }], status: TradeStatus.COMPLETED, createdAt: { gte: windowStart } },
+          }),
+          this.prisma.trade.count({
+            where: {
+              OR: [{ buyerId: userId }, { sellerId: userId }],
+              status: { in: [TradeStatus.COMPLETED, TradeStatus.CANCELLED, TradeStatus.DISPUTED] },
+              createdAt: { gte: windowStart },
+            },
+          }),
+          this.prisma.trade.findMany({
+            where: {
+              sellerId: userId,
+              status: TradeStatus.COMPLETED,
+              paidAt: { not: null },
+              completedAt: { not: null },
+              createdAt: { gte: windowStart },
+            },
+            select: { paidAt: true, completedAt: true },
+            take: 50,
+            orderBy: { completedAt: 'desc' },
+          }),
+          // Ratings are all-time, not windowed — unlike the trade-count tier, a
+          // trust score shouldn't reset just because trading slowed down.
+          this.prisma.tradeRating.aggregate({
+            where: { ratedUserId: userId },
+            _avg: { stars: true },
+            _count: true,
+          }),
+        ]);
+        const avgReleaseMinutes = releasedAsSeller.length
+          ? Math.round(
+              releasedAsSeller.reduce((sum, t) => sum + (t.completedAt!.getTime() - t.paidAt!.getTime()), 0) /
+                releasedAsSeller.length /
+                60_000,
+            )
+          : null;
+        statsByUser.set(userId, {
+          completedTrades: completed,
+          completionRate: finished > 0 ? Math.round((completed / finished) * 100) : null,
+          tier: tierFor(completed),
+          avgReleaseMinutes,
+          avgRating: ratingAgg._count > 0 ? Math.round((ratingAgg._avg.stars ?? 0) * 10) / 10 : null,
+          ratingCount: ratingAgg._count,
+        });
+      }),
+    );
+
+    return ads.map((ad) => ({ ...ad, user: { ...ad.user, ...statsByUser.get(ad.user.id) } }));
+  }
+
+  /** Public storefront: a trader's stats plus their currently active ads, so buyers can vet someone in one place. */
+  async getTraderProfile(traderId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: traderId },
+      select: { id: true, email: true, fullName: true, createdAt: true, lastSeenAt: true, isMerchant: true },
+    });
+    if (!user) throw new NotFoundException('Trader not found');
+
+    const [{ user: userWithStats }] = await this.attachMerchantStats([{ user }]);
+
+    const ads = await this.prisma.ad.findMany({
+      where: { userId: traderId, status: AdStatus.ACTIVE },
+      orderBy: { createdAt: 'desc' },
+    });
+    const adsWithPrice = await this.attachEffectivePrice(ads);
+
+    const recentRatings = await this.prisma.tradeRating.findMany({
+      where: { ratedUserId: traderId, comment: { not: null } },
+      select: { stars: true, comment: true, createdAt: true, rater: { select: { fullName: true } } },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    });
+
+    return { ...userWithStats, ads: adsWithPrice, recentRatings };
+  }
+
+  /**
+   * For Express/Quick trade: finds the best currently active ad for the
+   * opposite side of what the user wants, at the best price, whose limits
+   * the requested amount actually fits within — so "quick buy 50 USDT" skips
+   * ad-browsing entirely and goes straight to the best deal available now.
+   */
+  async findBestMatch(wantSide: AdSide, amountUsdt: number, excludeUserId: string) {
+    const adSide = wantSide === AdSide.BUY ? AdSide.SELL : AdSide.BUY;
+    const ads = await this.prisma.ad.findMany({
+      where: { status: AdStatus.ACTIVE, side: adSide, userId: { not: excludeUserId } },
+    });
+    if (ads.length === 0) return null;
+
+    const withPrice = await this.attachEffectivePrice(ads);
+    const eligible = withPrice.filter((ad) => {
+      const price = parseFloat(ad.effectivePriceEtb);
+      const amountEtb = amountUsdt * price;
+      return amountEtb >= parseFloat(ad.minLimitEtb.toString()) && amountEtb <= parseFloat(ad.maxLimitEtb.toString());
+    });
+    if (eligible.length === 0) return null;
+
+    // Buying USDT: the cheapest seller wins. Selling USDT: the highest-paying buyer wins.
+    eligible.sort((a, b) => {
+      const pa = parseFloat(a.effectivePriceEtb);
+      const pb = parseFloat(b.effectivePriceEtb);
+      return wantSide === AdSide.BUY ? pa - pb : pb - pa;
+    });
+
+    // Skip ads from traders blocked in either direction — createTrade would
+    // reject the match anyway, so trying the next-best offer here means quick
+    // trade still succeeds instead of failing outright on a blocked top match.
+    for (const ad of eligible) {
+      if (!(await this.relationsService.isBlocked(excludeUserId, ad.userId))) {
+        return ad;
+      }
+    }
+    return null;
+  }
+
+  async findActive(side?: AdSide) {
+    const ads = await this.prisma.ad.findMany({
+      where: { status: AdStatus.ACTIVE, ...(side ? { side } : {}) },
+      include: {
+        user: { select: { id: true, email: true, fullName: true, createdAt: true, lastSeenAt: true, isMerchant: true } },
       },
       orderBy: { createdAt: 'desc' },
     });
+    const withStats = await this.attachMerchantStats(ads);
+    return this.attachEffectivePrice(withStats);
   }
 
-  listPending() {
-    return this.prisma.bannerAd.findMany({
-      where: { status: BannerAdStatus.PENDING },
-      orderBy: { createdAt: 'asc' },
+  async findById(id: string) {
+    const ad = await this.prisma.ad.findUnique({
+      where: { id },
+      include: { user: { select: { id: true, email: true, fullName: true, lastSeenAt: true, isMerchant: true } } },
     });
+    if (!ad) throw new NotFoundException('Ad not found');
+    const [withStats] = await this.attachMerchantStats([ad]);
+    const [withPrice] = await this.attachEffectivePrice([withStats]);
+    return withPrice;
   }
 
-  async approve(adminId: string, id: string) {
-    const record = await this.getById(id);
-    const updated = await this.prisma.bannerAd.update({
-      where: { id: record.id },
-      data: { status: BannerAdStatus.APPROVED, reviewedBy: adminId, reviewedAt: new Date() },
-    });
-    await this.prisma.adminAuditLog.create({
-      data: { adminId, action: 'BANNER_AD_APPROVED', targetId: record.id },
-    });
-    return updated;
+  findMine(userId: string) {
+    return this.prisma.ad.findMany({ where: { userId }, orderBy: { createdAt: 'desc' } });
   }
 
-  async reject(adminId: string, id: string, dto: RejectBannerAdDto) {
-    const record = await this.getById(id);
-    const updated = await this.prisma.bannerAd.update({
-      where: { id: record.id },
-      data: { status: BannerAdStatus.REJECTED, rejectionReason: dto.reason, reviewedBy: adminId, reviewedAt: new Date() },
-    });
-    await this.prisma.adminAuditLog.create({
-      data: { adminId, action: `BANNER_AD_REJECTED: ${dto.reason}`, targetId: record.id },
-    });
-    return updated;
+  async pause(userId: string, id: string) {
+    const ad = await this.findById(id);
+    if (ad.userId !== userId) throw new ForbiddenException('Not your ad');
+    return this.prisma.ad.update({ where: { id }, data: { status: AdStatus.PAUSED } });
   }
 
-  private async getById(id: string) {
-    const record = await this.prisma.bannerAd.findUnique({ where: { id } });
-    if (!record) throw new NotFoundException('Banner ad submission not found');
-    return record;
+  async reactivate(userId: string, id: string) {
+    const ad = await this.findById(id);
+    if (ad.userId !== userId) throw new ForbiddenException('Not your ad');
+    if (ad.side === AdSide.SELL) {
+      await this.assertSellAdFunded(userId, ad.priceEtb.toString(), ad.maxLimitEtb.toString());
+    }
+    return this.prisma.ad.update({ where: { id }, data: { status: AdStatus.ACTIVE } });
+  }
+
+  /**
+   * Ads left ACTIVE while their poster has been offline too long are a
+   * common source of stuck trades — a buyer starts a trade against them and
+   * the seller never shows up to confirm. Auto-pause instead; the poster can
+   * manually reactivate (which re-checks funding) once they're back.
+   */
+  async autoPauseStaleAds(offlineMinutes: number) {
+    const autoPauseCutoff = new Date(Date.now() - offlineMinutes * 60_000);
+    const result = await this.prisma.ad.updateMany({
+      where: { status: AdStatus.ACTIVE, user: { lastSeenAt: { lt: autoPauseCutoff } } },
+      data: { status: AdStatus.PAUSED },
+    });
+    return result.count;
   }
 }
