@@ -4,7 +4,7 @@ import { YoutubeProvider } from './providers/youtube.provider';
 import { WebProvider } from './providers/web.provider';
 import { IngestService } from './ingest.service';
 import { leadsFromCsv, leadsFromRecords } from './csv';
-import { parseLeadUrl } from './url-parser';
+import { ParsedUrl, parseLeadUrl } from './url-parser';
 import { RawLead } from './types';
 
 export interface UrlOutcome {
@@ -27,6 +27,20 @@ export class DiscoveryService {
     return { found: leads.length, ...(await this.ingest.upsertMany(leads)) };
   }
 
+  /**
+   * Reads a lead in the best way available for its platform. `enriched` is true
+   * only when the data came straight from the source (API or the page itself),
+   * not from a link we couldn't open.
+   */
+  async readLead(parsed: ParsedUrl, source: string): Promise<{ raw: RawLead; enriched: boolean }> {
+    let raw: RawLead | null = null;
+    if (parsed.platform === Platform.YOUTUBE && this.youtube.configured) raw = await this.youtube.resolve(parsed.handle, source);
+    else if (parsed.platform === Platform.TELEGRAM) raw = await this.web.telegram(parsed.handle);
+    else if (parsed.platform === Platform.WEBSITE) raw = await this.web.website(parsed.url);
+    if (raw) return { raw: { ...raw, source }, enriched: true };
+    return { raw: { platform: parsed.platform, handle: parsed.handle, url: parsed.url, displayName: parsed.handle, source }, enriched: false };
+  }
+
   /** Paste links in any mix — each is read in the best way available for its platform. */
   async addUrls(urls: string[]): Promise<UrlOutcome[]> {
     const out: UrlOutcome[] = [];
@@ -37,21 +51,14 @@ export class DiscoveryService {
         continue;
       }
       try {
-        let raw: RawLead | null = null;
-        let note: string | undefined;
-        if (parsed.platform === Platform.YOUTUBE && this.youtube.configured) raw = await this.youtube.resolve(parsed.handle);
-        else if (parsed.platform === Platform.TELEGRAM) raw = await this.web.telegram(parsed.handle);
-        else if (parsed.platform === Platform.WEBSITE) raw = await this.web.website(parsed.url);
-
-        if (!raw) {
-          // TikTok, Instagram, X, Reddit (and anything we couldn't read) can't be read automatically —
-          // save the link so nothing is lost, and the manager can add a bio or import details.
-          raw = { platform: parsed.platform, handle: parsed.handle, url: parsed.url, displayName: parsed.handle, source: 'url' };
-          note =
-            parsed.platform === Platform.WEBSITE || parsed.platform === Platform.TELEGRAM
-              ? 'Could not read this page (blocked, private or not found) — saved as a bare link.'
-              : 'Saved as a link. This platform cannot be read automatically — add a bio or import details so it can be scored.';
-        }
+        const { raw, enriched } = await this.readLead(parsed, 'url');
+        // TikTok, Instagram, X, Reddit (and anything we couldn't read) can't be read automatically —
+        // save the link so nothing is lost, and the manager can add a bio or import details.
+        const note = enriched
+          ? undefined
+          : parsed.platform === Platform.WEBSITE || parsed.platform === Platform.TELEGRAM
+            ? 'Could not read this page (blocked, private or not found) — saved as a bare link.'
+            : 'Saved as a link. This platform cannot be read automatically — add a bio or import details so it can be scored.';
         const saved = await this.ingest.upsert(raw);
         out.push({ url: input, status: 'saved', leadId: saved.id, note });
       } catch (err) {

@@ -39,6 +39,9 @@ export const config = {
 
   // Models. Both default to the most capable Claude model; set cheaper ones here if volume grows.
   classifierModel: process.env.CLASSIFIER_MODEL ?? 'claude-opus-5-5',
+  discoveryModel: process.env.DISCOVERY_MODEL ?? 'claude-opus-5-5',
+  aiDiscoveryDailyLimit: num('AI_DISCOVERY_DAILY_LIMIT', 20),
+  aiDiscoveryMaxSearches: num('AI_DISCOVERY_MAX_SEARCHES', 10),
   draftModel: process.env.DRAFT_MODEL ?? 'claude-opus-5-5',
   classifierConcurrency: num('CLASSIFIER_CONCURRENCY', 3),
 

@@ -15,13 +15,37 @@ makes every decision; the software does the legwork.
 
 | Step | How |
 |---|---|
-| **Find** | YouTube keyword search (official API), pasted links (YouTube, Telegram, websites), and CSV/JSON import for platforms that can't be read automatically (TikTok, Instagram, X, Reddit). The same creator found twice is one lead. |
+| **Find** | **AI web search** (Claude searches the public web by category — see below), YouTube keyword search (official API), pasted links (YouTube, Telegram, websites), and CSV/JSON import. The same creator found twice is one lead. |
 | **Score** | Claude reads the public profile and rates audience fit, content fit, credibility and promo experience. **Reach is calculated from the real follower count, not guessed.** The final 0-100 score is a weighted sum computed in code (weights are configurable), so it is transparent and repeatable. |
 | **Protect the brand** | Hard disqualifiers: audience that may include under-18s, "fixed match"/sure-tip scams, illegal or hateful content, and leads outside your target countries. They cap the score low and **cannot be approved** from the dashboard. Softer flags (guaranteed-win claims, fake engagement, spam, adult content) cap the score at 45 and keep the lead out of "priority". |
 | **Review** | The dashboard lists priority leads with the score breakdown, strengths, concerns and flags. A manager approves, rejects, or marks do-not-contact. Every decision is recorded (who, when). |
 | **Outreach** | Only for approved leads with a published email. Claude drafts a short, honest message; the manager edits it and **approves that exact text**; only then can it be sent. One email per lead, a daily cap, and every message carries the sender's postal address, a working unsubscribe link, and an 18+/responsible-gambling notice. Wording that promises income, "risk-free" or "guaranteed" results is blocked. |
 
 **Nothing is emailed until you turn it on.** `OUTREACH_DRY_RUN` defaults to `true`: "Send" only shows a preview.
+
+## Finding partners with AI
+
+On **Add leads → Find partners with AI**, pick categories and press *Search the web*:
+
+football channels · sports news pages · prediction/tips creators · sports influencers · betting & prediction communities ·
+football websites · public Telegram channels · public Reddit communities · public X accounts · YouTube channels · TikTok creators with public profiles
+
+Optionally add a target country, a language and an extra focus (for example "Swahili-speaking tipsters"). Claude runs web searches
+(several per run), and a run takes roughly 1–3 minutes. Nothing is contacted.
+
+**Public information only.** Claude searches the open web like a person would. It cannot and does not look into private groups,
+closed channels, invite-only chats or anything behind a login, and no scraping of Reddit, X, TikTok or Instagram is done.
+
+**How made-up results are kept out.** Language models can invent plausible-looking accounts, so each suggestion is checked:
+1. its address must have appeared in the real search results Claude was given, otherwise it is rejected (the dashboard lists the rejections and why);
+2. YouTube, Telegram and website candidates are re-read from the source itself, so follower counts and published emails are real;
+3. for platforms we can't read (X, TikTok, Instagram, Reddit) only the link and Claude's one-line note are kept. The note is labelled
+   *unverified*, followers and emails are never taken from it, and the scorer treats it as weak evidence (credibility and audience fit capped at 60) until a person adds details.
+
+A search is not a verdict: after it, press **Score new leads**, then review.
+
+Controls: one search at a time, `AI_DISCOVERY_DAILY_LIMIT` runs per day (default 20) and `AI_DISCOVERY_MAX_SEARCHES` web searches per run (default 10).
+The search tool is billed per search on top of the normal token cost, so keep those limits modest while you learn what a run costs.
 
 ## Run it locally
 
@@ -54,7 +78,7 @@ All in environment variables (see `.env.example`): `PRODUCT_DESCRIPTION` and `ID
 
 Scoring uses one Claude call per lead and drafting one per approved lead. Models default to the most capable
 (`claude-opus-5-5`); set `CLASSIFIER_MODEL` / `DRAFT_MODEL` to a cheaper model if you score thousands of leads.
-YouTube keyword search costs about 100 of the 10,000 free daily quota units per search.
+The AI web search is billed per search plus tokens (see Anthropic's pricing page). YouTube keyword search costs about 100 of the 10,000 free daily quota units per search.
 
 ## Compliance — please read
 
@@ -76,7 +100,7 @@ This tool helps with the mechanics; **you** are responsible for the programme be
 
 ## API (all need `Authorization: Bearer <ADMIN_API_KEY>`)
 
-`POST /discovery/youtube` · `POST /discovery/urls` · `POST /discovery/import` · `POST /classification/run` ·
+`POST /discovery/ai` (then poll `GET /discovery/ai/:id`) · `POST /discovery/youtube` · `POST /discovery/urls` · `POST /discovery/import` · `POST /classification/run` ·
 `GET /leads` (`status`, `platform`, `minScore`, `priority`, `needsAttention`, `q`, `limit`, `offset`) · `GET /leads/stats` · `GET /leads/:id` ·
 `PATCH /leads/:id` · `POST /leads/:id/{approve,reject,replied,do-not-contact,rescore}` ·
 `POST /leads/:id/outreach/draft` · `GET|PATCH /outreach/:id` · `POST /outreach/:id/{approve,send}` ·
@@ -85,12 +109,12 @@ public: `GET|POST /unsubscribe/:token`, `GET /health`.
 ## Tests
 
 ```bash
-npm test                               # 80 unit tests, no database needed
-DATABASE_URL=... npm run test:e2e      # 30 end-to-end tests against a real database (Claude and email are faked)
+npm test                               # 89 unit tests, no database needed
+DATABASE_URL=... npm run test:e2e      # 37 end-to-end tests against a real database (Claude and email are faked)
 ```
 
 ## Not built yet
 
-- Reddit and X search (their APIs are paid or restricted — import for now).
+- Direct Reddit/X/TikTok/Instagram APIs (paid or restricted). The AI web search finds their public pages instead, and details can be imported.
 - Automatic follow-ups and reply tracking (a manager marks "they replied").
 - Per-person logins and roles.

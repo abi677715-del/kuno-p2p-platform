@@ -84,6 +84,7 @@ Rules:
   FAKE_ENGAGEMENT — signs of bought followers or bot comments.
   SPAM_OR_LOW_QUALITY — copy-paste, link-dumping or abandoned channels.
   ADULT_CONTENT — sexually explicit content.
+- Text starting with "[Unverified AI web-search note]" is a second-hand summary from an earlier search, not something read from the lead's own profile. Treat it as weak evidence: do not score credibility or audience fit above 60 on it alone, and say in "concerns" that the profile itself was not read.
 - Score each 0-100 honestly. Most leads are not a great fit; reserve 80+ for clear, strong evidence. A big audience does not make someone credible. Reach is calculated separately — do not score follower count yourself.
 - Keep strengths and concerns short and specific (quote a detail from the data when you can).`;
 }

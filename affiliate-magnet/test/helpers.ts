@@ -7,6 +7,7 @@ import { CLASSIFIER_LLM } from '../src/classification/classification.service';
 import { ModelAssessment } from '../src/classification/llm';
 import { DRAFTER } from '../src/outreach/outreach.service';
 import { MAILER, OutgoingEmail } from '../src/outreach/mailer';
+import { AI_DISCOVERER, AiSearchRequest, AiSearchResult } from '../src/discovery/ai-discovery';
 
 export const KEY = 'e2e-admin-key-0123456789abcdef';
 
@@ -35,6 +36,20 @@ export class FakeDrafter {
   }
 }
 
+export class FakeDiscoverer {
+  modelName = 'fake-discoverer';
+  requests: AiSearchRequest[] = [];
+  result: AiSearchResult = { candidates: [], seenUrls: [], searches: 3 };
+  delayMs = 0;
+  fail: string | null = null;
+  async find(req: AiSearchRequest) {
+    this.requests.push(req);
+    if (this.delayMs) await new Promise((r) => setTimeout(r, this.delayMs));
+    if (this.fail) throw new Error(this.fail);
+    return this.result;
+  }
+}
+
 export class FakeMailer {
   sent: OutgoingEmail[] = [];
   failNext = false;
@@ -49,10 +64,12 @@ export async function boot() {
   const llm = new FakeLlm();
   const drafter = new FakeDrafter();
   const mailer = new FakeMailer();
+  const discoverer = new FakeDiscoverer();
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
     .overrideProvider(CLASSIFIER_LLM).useValue(llm)
     .overrideProvider(DRAFTER).useValue(drafter)
     .overrideProvider(MAILER).useValue(mailer)
+    .overrideProvider(AI_DISCOVERER).useValue(discoverer)
     .compile();
   const app = moduleRef.createNestApplication<NestExpressApplication>();
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
@@ -79,8 +96,9 @@ export async function boot() {
   async function reset() {
     await db.$executeRawUnsafe('TRUNCATE leads, outreach, suppressions, audit_log CASCADE');
     llm.calls = []; llm.byHandle = {}; mailer.sent = []; mailer.failNext = false;
+    discoverer.requests = []; discoverer.result = { candidates: [], seenUrls: [], searches: 3 }; discoverer.delayMs = 0; discoverer.fail = null;
   }
-  return { app, api, db, llm, drafter, mailer, reset, close: async () => { await db.$disconnect(); await app.close(); } };
+  return { app, api, db, llm, drafter, mailer, discoverer, reset, close: async () => { await db.$disconnect(); await app.close(); } };
 }
 
 export const importLeads = (api: Awaited<ReturnType<typeof boot>>['api'], rows: Record<string, unknown>[]) =>

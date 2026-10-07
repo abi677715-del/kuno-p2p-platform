@@ -251,6 +251,53 @@ function sendIt(o) {
   };
 }
 
+const AI_DEFAULTS = ['FOOTBALL_CHANNELS', 'PREDICTION_CREATORS', 'TELEGRAM_CHANNELS', 'YOUTUBE_CHANNELS'];
+function aiCard() {
+  const box = h('div', { class: 'card' }, h('h2', {}, 'Find partners with AI'),
+    h('p', { class: 'muted' }, 'Claude searches the public web for candidates in the categories you pick. Public pages only. Every result is checked against the real search results before it is saved, and nothing is contacted.'));
+  const out = h('div', { class: 'meta', style: 'margin-top:8px' });
+  const checks = [];
+  const country = h('input', { placeholder: 'Target country e.g. KE', maxlength: 2, size: 20 });
+  const language = h('input', { placeholder: 'Language e.g. Swahili', maxlength: 40 });
+  const focus = h('input', { placeholder: 'Extra focus (optional)', maxlength: 200, style: 'flex:1;min-width:220px' });
+  const limit = h('select', { 'aria-label': 'How many' }, [10, 15, 25].map((n) => h('option', { value: n, selected: n === 15 }, 'Up to ' + n)));
+  const go = h('button', { disabled: true }, 'Search the web');
+  const grid = h('div', { class: 'row' }, h('span', { class: 'muted' }, 'Loading categories…'));
+  box.append(grid, h('div', { class: 'row' }, country, language, focus, limit, go), out);
+
+  api('/discovery/ai/segments').then((segs) => {
+    grid.replaceChildren(...Object.entries(segs).map(([key, label]) => {
+      const cb = h('input', { type: 'checkbox', value: key, id: 'seg-' + key }); cb.checked = AI_DEFAULTS.includes(key); checks.push(cb);
+      return h('label', { class: 'pill', for: 'seg-' + key, style: 'cursor:pointer' }, cb, ' ' + label);
+    }));
+    go.disabled = false;
+  }).catch((e) => { grid.textContent = e.message; });
+
+  go.addEventListener('click', async () => {
+    const segments = checks.filter((c) => c.checked).map((c) => c.value);
+    if (!segments.length) return toast('Pick at least one category.', true);
+    go.disabled = true; out.textContent = 'Starting…';
+    try {
+      const { jobId } = await api('/discovery/ai', { method: 'POST', body: { segments, country: country.value.trim() || undefined, language: language.value.trim() || undefined, focus: focus.value.trim() || undefined, limit: Number(limit.value) } });
+      const began = Date.now();
+      out.textContent = 'Searching the web… (this usually takes 1–3 minutes)';
+      for (;;) {
+        await new Promise((r) => setTimeout(r, 3000));
+        const job = await api('/discovery/ai/' + jobId);
+        if (job.status === 'running') { out.textContent = 'Searching the web… ' + Math.round((Date.now() - began) / 1000) + 's (this usually takes 1–3 minutes)'; if (Date.now() - began > 12 * 60 * 1000) throw new Error('Taking too long — check back later.'); continue; }
+        if (job.status === 'failed') throw new Error(job.error || 'The search failed.');
+        const r = job.result;
+        out.replaceChildren(h('div', {}, 'Done: ' + r.created + ' new leads, ' + r.updated + ' already known. ' + r.verifiedFromSource + ' checked directly at the source. ' + r.rejected.length + ' suggestions rejected.'),
+          h('div', {}, 'Open "To review" after pressing "Score new leads" to see how they rate.'),
+          r.rejected.length ? h('details', {}, h('summary', {}, 'Why were some rejected?'), h('ul', { class: 'plain' }, r.rejected.map((x) => h('li', {}, x.url + ' — ' + x.reason)))) : null);
+        loadStats(); break;
+      }
+    } catch (e) { out.textContent = e.message; toast(e.message, true); }
+    go.disabled = false;
+  });
+  return box;
+}
+
 function renderAdd(pane) {
   closeDetail();
   const out = h('div', { class: 'meta' });
@@ -263,7 +310,8 @@ function renderAdd(pane) {
   const guard = async (p, f) => { out.textContent = 'Working…'; try { show(f(await p())); loadStats(); } catch (e) { out.textContent = e.message; toast(e.message, true); } };
 
   pane.replaceChildren(
-    h('div', { class: 'card' }, h('h2', {}, 'Search YouTube'), h('p', { class: 'muted' }, 'Finds channels by keyword (needs YOUTUBE_API_KEY on the server).'),
+    aiCard(),
+    h('div', { class: 'card', style: 'margin-top:12px' }, h('h2', {}, 'Search YouTube'), h('p', { class: 'muted' }, 'Finds channels by keyword (needs YOUTUBE_API_KEY on the server).'),
       h('div', { class: 'row' }, yq, yr, h('button', { onclick: () => guard(() => api('/discovery/youtube', { method: 'POST', body: { query: yq.value.trim(), limit: 20, regionCode: yr.value.trim() || undefined } }), (r) => ['Found ' + r.found + ' channels: ' + r.created + ' new, ' + r.updated + ' already known.']) }, 'Search'))),
     h('div', { class: 'card', style: 'margin-top:12px' }, h('h2', {}, 'Paste links'), urls,
       h('div', { class: 'row' }, h('button', { onclick: () => guard(() => api('/discovery/urls', { method: 'POST', body: { urls: urls.value.split(/\s*\n\s*/).map((s) => s.trim()).filter(Boolean) } }), (r) => r.results.map((x) => (x.status === 'saved' ? '✓ ' : '✗ ') + x.url + (x.note ? ' — ' + x.note : ''))) }, 'Add links'))),

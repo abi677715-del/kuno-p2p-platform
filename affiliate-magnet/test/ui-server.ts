@@ -12,7 +12,8 @@ import { AppModule } from '../src/app.module';
 import { CLASSIFIER_LLM } from '../src/classification/classification.service';
 import { DRAFTER } from '../src/outreach/outreach.service';
 import { MAILER } from '../src/outreach/mailer';
-import { GOOD, FakeDrafter, FakeMailer, FakeLlm } from './helpers';
+import { GOOD, FakeDrafter, FakeMailer, FakeLlm, FakeDiscoverer } from './helpers';
+import { AI_DISCOVERER } from '../src/discovery/ai-discovery';
 
 (async () => {
   const llm = new FakeLlm();
@@ -21,8 +22,15 @@ import { GOOD, FakeDrafter, FakeMailer, FakeLlm } from './helpers';
     sureodds: { red_flags: ['GUARANTEED_WINS_CLAIMS'], concerns: ['Promises "100% sure wins"'] },
     smalltips: { audience_relevance: 45, content_fit: 50, credibility: 55, promo_experience: 10, strengths: [] },
   };
+  const disc = new FakeDiscoverer();
+  disc.delayMs = 1500;
+  disc.result = { searches: 6, seenUrls: ['https://t.me/s/uitelegramtips', 'https://x.com/uixtipster'], candidates: [
+    { url: 'https://t.me/uitelegramtips', name: 'UI Telegram Tips', note: 'Daily football tips channel' },
+    { url: 'https://x.com/uixtipster', name: 'UI X Tipster', note: 'Posts predictions' },
+    { url: 'https://x.com/notinresults', name: 'Invented', note: 'Not real' },
+  ] };
   const m = await Test.createTestingModule({ imports: [AppModule] })
-    .overrideProvider(CLASSIFIER_LLM).useValue(llm).overrideProvider(DRAFTER).useValue(new FakeDrafter()).overrideProvider(MAILER).useValue(new FakeMailer()).compile();
+    .overrideProvider(CLASSIFIER_LLM).useValue(llm).overrideProvider(DRAFTER).useValue(new FakeDrafter()).overrideProvider(MAILER).useValue(new FakeMailer()).overrideProvider(AI_DISCOVERER).useValue(disc).compile();
   const app = m.createNestApplication<NestExpressApplication>();
   app.use(helmet());
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
