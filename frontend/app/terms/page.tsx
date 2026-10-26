@@ -1,3 +1,10 @@
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'Terms of service',
+  description: 'The terms for using Birrly, the peer-to-peer USDT and Birr marketplace.',
+};
+
 export default function TermsPage() {
   return (
     <main className="min-h-screen bg-ink px-6 py-10 md:px-12">

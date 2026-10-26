@@ -1,3 +1,10 @@
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'About Birrly',
+  description: 'How Birrly works: a peer-to-peer USDT and Ethiopian Birr marketplace with escrow on every trade and a 2% fee only on completed trades.',
+};
+
 export default function AboutPage() {
   return (
     <main className="min-h-screen bg-ink px-6 py-10 md:px-12">

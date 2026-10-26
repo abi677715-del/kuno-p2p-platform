@@ -11,8 +11,10 @@ const DESCRIPTION = 'A peer-to-peer marketplace to exchange USDT and Ethiopian B
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: TITLE,
+  title: { default: TITLE, template: '%s | Birrly' },
   description: DESCRIPTION,
+  // each page points Google at its own address on www.birrly.net (not birrly.net, http:// or a ?query copy)
+  alternates: { canonical: './' },
   keywords: ['USDT', 'Ethiopian Birr', 'ETB', 'peer to peer', 'crypto exchange', 'Ethiopia', 'escrow', 'P2P trading'],
   manifest: '/manifest.json',
   appleWebApp: {
@@ -25,7 +27,7 @@ export const metadata: Metadata = {
     description: DESCRIPTION,
     url: SITE_URL,
     siteName: 'Birrly',
-    images: [{ url: '/og-image.png', width: 1200, height: 630, alt: 'Birrly — Trade USDT for Birr' }],
+    images: [{ url: '/ogimage.png', width: 1200, height: 630, alt: 'Birrly — Trade USDT for Birr' }],
     locale: 'en_US',
     type: 'website',
   },
@@ -33,7 +35,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: TITLE,
     description: DESCRIPTION,
-    images: ['/og-image.png'],
+    images: ['/ogimage.png'],
   },
 };
 

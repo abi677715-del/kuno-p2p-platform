@@ -1,3 +1,10 @@
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'Privacy policy',
+  description: 'How Birrly collects, uses and protects your personal data.',
+};
+
 export default function PrivacyPage() {
   return (
     <main className="min-h-screen bg-ink px-6 py-10 md:px-12">

@@ -1,3 +1,10 @@
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'Risk disclosure',
+  description: 'The risks of trading USDT and other crypto assets on Birrly.',
+};
+
 export default function RiskDisclosurePage() {
   return (
     <main className="min-h-screen bg-ink px-6 py-10 md:px-12">
