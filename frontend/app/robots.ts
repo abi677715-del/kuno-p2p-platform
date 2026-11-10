@@ -6,7 +6,7 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: '*',
         allow: '/',
-        disallow: ['/admin', '/dashboard', '/wallet', '/trades', '/profile', '/settings', '/kyc', '/notifications'],
+        disallow: ['/admin', '/dashboard', '/wallet', '/trades', '/profile', '/settings', '/kyc', '/notifications', '/marketplace/my-ads', '/merchant', '/terms-accept', '/reset-password', '/verify-email', '/forgot-password'],
       },
     ],
     sitemap: 'https://www.birrly.net/sitemap.xml',

@@ -7,3 +7,4 @@ uploads/
 .env.local
 sw.js
 workbox-*.js
+*.tsbuildinfo
